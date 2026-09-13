@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { BarChart3, CalendarDays, CheckCircle2, ClipboardList, History, LayoutDashboard, Plus, Scissors, Settings2, UserPlus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { BarChart3, CalendarDays, CheckCircle2, ClipboardList, Download, History, LayoutDashboard, MonitorPlay, Plus, Scissors, Settings2, UserPlus } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import DashboardShell from '../components/DashboardShell.jsx';
 import StatCard from '../components/StatCard.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { apiRequest } from '../services/api.js';
+import { announceToken, playChimeTone } from '../utils/audio.js';
 
 const staffLinks = [
   { to: '/staff/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
@@ -16,6 +17,25 @@ const staffLinks = [
   { to: '/staff/statistics', label: 'Statistics', icon: <BarChart3 size={18} /> },
   { to: '/staff/history', label: 'History', icon: <History size={18} /> }
 ];
+
+function downloadCSV(filename, data) {
+  if (!data || !data.length) return;
+  const headers = Object.keys(data[0]);
+  const csvContent = [
+    headers.join(','),
+    ...data.map((row) =>
+      headers.map((h) => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(',')
+    )
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.setAttribute('download', `${filename}-${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
 
 function StaffShell({ children, title = 'Staff Dashboard', subtitle }) {
   const navigate = useNavigate();
@@ -36,18 +56,25 @@ function StaffShell({ children, title = 'Staff Dashboard', subtitle }) {
 }
 
 export function StaffDashboard() {
+  const { staff } = useAuth();
   const [data, setData] = useState({ summary: {}, queue: [] });
   const [notice, setNotice] = useState('');
+  const businessId = staff?.business_id || 1;
 
   useEffect(() => {
     apiRequest('/staff/dashboard', { staff: true })
       .then(setData)
-      .catch((error) => setNotice(`${error.message}. Login as staff with a running MySQL database to control live data.`));
+      .catch((error) => setNotice(`${error.message}. Login as staff to control live data.`));
   }, []);
 
   return (
     <StaffShell>
       {notice && <p className="soft-alert">{notice}</p>}
+      <div className="toolbar-panel staff-quick-bar">
+        <Link to={`/display/${businessId}`} target="_blank" className="button secondary small">
+          <MonitorPlay size={16} /> Open Waiting Room TV Display
+        </Link>
+      </div>
       <section className="stats-grid">
         <StatCard label="Waiting" value={data.summary.waiting_count || 0} caption="In active queue" icon={<ClipboardList />} />
         <StatCard label="Now Serving" value={data.summary.serving_count || 0} caption="Current counters" icon={<Scissors />} />
@@ -59,10 +86,12 @@ export function StaffDashboard() {
 }
 
 export function TodaysQueue() {
+  const { staff } = useAuth();
   const [rows, setRows] = useState([]);
   const [services, setServices] = useState([]);
   const [selectedService, setSelectedService] = useState('');
   const [message, setMessage] = useState('');
+  const businessId = staff?.business_id || 1;
 
   async function load() {
     try {
@@ -76,7 +105,7 @@ export function TodaysQueue() {
     } catch {
       setRows([]);
       setServices([]);
-      setMessage('Login as staff and connect MySQL to manage the live queue.');
+      setMessage('Login as staff to manage the live queue.');
     }
   }
 
@@ -92,6 +121,14 @@ export function TodaysQueue() {
         staff: true
       });
       setMessage(result.message);
+      
+      // Audio chime and voice alert
+      playChimeTone();
+      if (result.entry?.token_number) {
+        const srv = services.find((s) => s.service_id === Number(selectedService));
+        announceToken(result.entry.token_number, 1, srv?.service_name);
+      }
+      
       load();
     } catch (error) {
       setMessage(error.message);
@@ -119,6 +156,9 @@ export function TodaysQueue() {
           {services.map((service) => <option key={service.service_id} value={service.service_id}>{service.service_name}</option>)}
         </select>
         <button className="button" onClick={callNext}>Call Next Customer</button>
+        <Link to={`/display/${businessId}`} target="_blank" className="button ghost small" title="Open TV Screen for Waiting Area">
+          <MonitorPlay size={16} /> TV Screen
+        </Link>
         {message && <span className="toolbar-message">{message}</span>}
       </div>
       <QueueTable rows={rows} onUpdate={updateStatus} />
@@ -138,7 +178,7 @@ function QueueTable({ rows, onUpdate }) {
               <td>#{row.token_number}</td>
               <td>{row.customer_name || 'Customer'}</td>
               <td>{row.service_name}</td>
-              <td>{row.source}</td>
+              <td>{row.source || 'Online'}</td>
               <td><StatusBadge status={row.status} /></td>
               <td className="table-actions">
                 {onUpdate && (
@@ -152,6 +192,7 @@ function QueueTable({ rows, onUpdate }) {
           ))}
         </tbody>
       </table>
+      {!rows.length && <p className="empty">No queue entries currently active.</p>}
     </div>
   );
 }
@@ -164,6 +205,14 @@ export function StaffAppointments() {
   return (
     <StaffShell title="Today's Appointments">
       <div className="panel">
+        <div className="table-header-row">
+          <h2>Appointments Schedule</h2>
+          {rows.length > 0 && (
+            <button className="button ghost small" onClick={() => downloadCSV('appointments-schedule', rows)}>
+              <Download size={15} /> Export CSV
+            </button>
+          )}
+        </div>
         <table>
           <thead><tr><th>Time</th><th>Customer</th><th>Phone</th><th>Service</th><th>Status</th></tr></thead>
           <tbody>{rows.map((row) => <tr key={row.appointment_id}><td>{row.appointment_time}</td><td>{row.customer_name}</td><td>{row.phone}</td><td>{row.service_name}</td><td><StatusBadge status={row.status} /></td></tr>)}</tbody>
@@ -254,8 +303,18 @@ export function StaffStatistics() {
   useEffect(() => {
     apiRequest('/staff/statistics', { staff: true }).then(setData).catch(() => setData({ statusCounts: [], serviceStats: [], busyServices: [] }));
   }, []);
+
+  function exportStats() {
+    downloadCSV('queue-service-performance', data.serviceStats);
+  }
+
   return (
     <StaffShell title="Queue Statistics">
+      <div className="toolbar-panel">
+        <button className="button ghost small" onClick={exportStats}>
+          <Download size={15} /> Export Analytics Report
+        </button>
+      </div>
       <section className="content-grid">
         <div className="panel"><h2>Status Summary</h2>{data.statusCounts.map((row) => <div className="list-row" key={row.status}><StatusBadge status={row.status} /><strong>{row.total}</strong></div>)}</div>
         <div className="panel"><h2>Service Performance</h2>{data.serviceStats.map((row) => <div className="list-row" key={row.service_name}><span>{row.service_name}</span><strong>{row.calculated_average_minutes} min avg</strong></div>)}</div>
@@ -269,9 +328,22 @@ export function StaffHistory() {
   useEffect(() => {
     apiRequest('/staff/history', { staff: true }).then(setRows).catch(() => setRows([]));
   }, []);
+
+  function exportHistory() {
+    downloadCSV('queue-history', rows);
+  }
+
   return (
     <StaffShell title="Historical Queue Information">
       <div className="panel">
+        <div className="table-header-row">
+          <h2>Queue History Logs</h2>
+          {rows.length > 0 && (
+            <button className="button ghost small" onClick={exportHistory}>
+              <Download size={15} /> Export CSV
+            </button>
+          )}
+        </div>
         <table>
           <thead><tr><th>Date</th><th>Service</th><th>Status</th><th>Total</th></tr></thead>
           <tbody>{rows.map((row, index) => <tr key={index}><td>{row.queue_date}</td><td>{row.service_name}</td><td><StatusBadge status={row.status} /></td><td>{row.total}</td></tr>)}</tbody>
@@ -281,3 +353,4 @@ export function StaffHistory() {
     </StaffShell>
   );
 }
+

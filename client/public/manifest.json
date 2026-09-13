@@ -1,0 +1,16 @@
+{
+  "name": "QueLess Digital Queue Management",
+  "short_name": "QueLess",
+  "description": "Digital queue management platform for clinics, banks, salons, and businesses.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7f7f2",
+  "theme_color": "#0f8f83",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

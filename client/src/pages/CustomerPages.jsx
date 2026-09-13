@@ -120,6 +120,8 @@ export function CustomerDashboard() {
   );
 }
 
+import QRCodePass from '../components/QRCodePass.jsx';
+
 export function QueueTracking() {
   const { entryId } = useParams();
   const [snapshot, setSnapshot] = useState(null);
@@ -157,15 +159,24 @@ export function QueueTracking() {
         <QueueMetric label="People Ahead" value={snapshot.people_ahead} />
         <QueueMetric label="Estimated Wait" value={snapshot.estimated_wait} />
       </section>
-      <div className="panel tracking-status">
-        <StatusBadge status={snapshot.status} />
-        <h2>{snapshot.position_message}</h2>
-        <p>Waiting time is an estimate based on people ahead and historical average service duration.</p>
-        <div className="progress-track"><span style={{ width: `${Math.max(8, 100 - snapshot.people_ahead * 9)}%` }} /></div>
+      <div className="tracking-details-grid">
+        <div className="panel tracking-status">
+          <StatusBadge status={snapshot.status} />
+          <h2>{snapshot.position_message}</h2>
+          <p>Waiting time is an estimate based on people ahead and historical average service duration.</p>
+          <div className="progress-track"><span style={{ width: `${Math.max(8, 100 - snapshot.people_ahead * 9)}%` }} /></div>
+        </div>
+        <div className="panel qr-pass-panel">
+          <QRCodePass 
+            value={`QUELESS:${snapshot.business_name}:TOKEN-${snapshot.token_number}:ENTRY-${snapshot.entry_id}`} 
+            label={`Token #${snapshot.token_number} Digital Verification Pass`}
+          />
+        </div>
       </div>
     </CustomerShell>
   );
 }
+
 
 function QueueMetric({ label, value }) {
   return (
