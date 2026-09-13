@@ -1,15 +1,22 @@
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import Logo from './Logo.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function PublicNav() {
   const { customer, staff, logoutCustomer, logoutStaff } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleHowItWorksClick = () => {
-    const el = document.getElementById('how-it-works');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
+  const handleHowItWorks = (e) => {
+    e.preventDefault();
+    if (location.pathname === '/' || location.pathname === '') {
+      const el = document.getElementById('how-it-works');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else {
+      navigate('/', { state: { scrollTo: 'how-it-works' } });
     }
   };
 
@@ -19,7 +26,9 @@ export default function PublicNav() {
       <nav className="nav-links">
         <NavLink to="/">Home</NavLink>
         <NavLink to="/businesses">Businesses</NavLink>
-        <Link to="/#how-it-works" onClick={handleHowItWorksClick}>How It Works</Link>
+        <button type="button" className="nav-button" onClick={handleHowItWorks}>
+          How It Works
+        </button>
         {customer && <NavLink to="/customer/dashboard">Customer Dashboard</NavLink>}
         {staff && <NavLink to="/staff/dashboard">Staff Dashboard</NavLink>}
         {!customer && !staff && (

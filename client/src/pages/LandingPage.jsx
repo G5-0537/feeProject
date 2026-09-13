@@ -15,10 +15,15 @@ export default function LandingPage() {
   const location = useLocation();
 
   useEffect(() => {
-    if (location.hash) {
+    if (location.state?.scrollTo) {
+      const el = document.getElementById(location.state.scrollTo);
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 100);
+      }
+    } else if (location.hash) {
       const target = document.querySelector(location.hash);
       if (target) {
-        target.scrollIntoView({ behavior: 'smooth' });
+        setTimeout(() => target.scrollIntoView({ behavior: 'smooth' }), 100);
       }
     }
   }, [location]);
