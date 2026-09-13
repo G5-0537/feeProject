@@ -6,13 +6,20 @@ import { useAuth } from '../context/AuthContext.jsx';
 export default function PublicNav() {
   const { customer, staff, logoutCustomer, logoutStaff } = useAuth();
 
+  const handleHowItWorksClick = () => {
+    const el = document.getElementById('how-it-works');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <header className="topbar">
       <Link to="/" className="plain-link"><Logo /></Link>
       <nav className="nav-links">
         <NavLink to="/">Home</NavLink>
         <NavLink to="/businesses">Businesses</NavLink>
-        <a href="/#how-it-works">How It Works</a>
+        <Link to="/#how-it-works" onClick={handleHowItWorksClick}>How It Works</Link>
         {customer && <NavLink to="/customer/dashboard">Customer Dashboard</NavLink>}
         {staff && <NavLink to="/staff/dashboard">Staff Dashboard</NavLink>}
         {!customer && !staff && (

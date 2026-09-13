@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowRight, BadgeCheck, BellRing, BriefcaseBusiness, Building2, CalendarCheck, CheckCircle2, Clock3, HelpCircle, LineChart, MapPin, Navigation, ShieldCheck, Smartphone, Ticket, UsersRound } from 'lucide-react';
 import PublicNav from '../components/PublicNav.jsx';
 import Logo from '../components/Logo.jsx';
@@ -11,6 +12,17 @@ const faqs = [
 ];
 
 export default function LandingPage() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash) {
+      const target = document.querySelector(location.hash);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, [location]);
+
   return (
     <>
       <PublicNav />
