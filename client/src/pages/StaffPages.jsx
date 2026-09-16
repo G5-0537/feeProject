@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BarChart3, CalendarDays, CheckCircle2, ClipboardList, Download, History, LayoutDashboard, MonitorPlay, Plus, Scissors, Settings2, UserPlus } from 'lucide-react';
+import { BarChart3, Building, CalendarDays, CheckCircle2, ClipboardList, Download, History, LayoutDashboard, MonitorPlay, Pause, Play, Plus, Scissors, Settings2, UserPlus, MapPin, Navigation } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import DashboardShell from '../components/DashboardShell.jsx';
 import StatCard from '../components/StatCard.jsx';
@@ -7,6 +7,7 @@ import StatusBadge from '../components/StatusBadge.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { apiRequest } from '../services/api.js';
 import { announceToken, playChimeTone } from '../utils/audio.js';
+import { openMapNavigation } from '../utils/geo.js';
 
 const staffLinks = [
   { to: '/staff/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
@@ -14,6 +15,7 @@ const staffLinks = [
   { to: '/staff/appointments', label: 'Appointments', icon: <CalendarDays size={18} /> },
   { to: '/staff/walk-in', label: 'Add Walk-in', icon: <UserPlus size={18} /> },
   { to: '/staff/services', label: 'Services', icon: <Settings2 size={18} /> },
+  { to: '/staff/branch', label: 'Branch Settings', icon: <Building size={18} /> },
   { to: '/staff/statistics', label: 'Statistics', icon: <BarChart3 size={18} /> },
   { to: '/staff/history', label: 'History', icon: <History size={18} /> }
 ];
@@ -37,13 +39,13 @@ function downloadCSV(filename, data) {
   document.body.removeChild(link);
 }
 
-function StaffShell({ children, title = 'Staff Dashboard', subtitle }) {
+function StaffShell({ children, title = 'Staff Command Center', subtitle }) {
   const navigate = useNavigate();
   const { staff, logoutStaff } = useAuth();
   return (
     <DashboardShell
       title={title}
-      subtitle={subtitle || `${staff?.business_name || 'Business'} queue control center`}
+      subtitle={subtitle || `${staff?.business_name || 'Business'} Operational Queue Desk`}
       links={staffLinks}
       onLogout={() => {
         logoutStaff();
@@ -57,30 +59,117 @@ function StaffShell({ children, title = 'Staff Dashboard', subtitle }) {
 
 export function StaffDashboard() {
   const { staff } = useAuth();
-  const [data, setData] = useState({ summary: {}, queue: [] });
+  const [data, setData] = useState({ summary: {}, branch: {}, queue: [] });
   const [notice, setNotice] = useState('');
+  const [isPaused, setIsPaused] = useState(false);
   const businessId = staff?.business_id || 1;
 
+  async function load() {
+    try {
+      const result = await apiRequest('/staff/dashboard', { staff: true });
+      setData(result);
+      setIsPaused(result.summary?.is_paused || result.branch?.is_paused || false);
+    } catch (error) {
+      setNotice(`${error.message}. Login as staff to control live data.`);
+    }
+  }
+
   useEffect(() => {
-    apiRequest('/staff/dashboard', { staff: true })
-      .then(setData)
-      .catch((error) => setNotice(`${error.message}. Login as staff to control live data.`));
+    load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
   }, []);
+
+  async function togglePause() {
+    try {
+      const res = await apiRequest('/staff/queue/pause', {
+        method: 'PATCH',
+        body: { is_paused: !isPaused },
+        staff: true
+      });
+      setIsPaused(res.is_paused);
+      setNotice(res.message);
+      load();
+    } catch (error) {
+      setNotice(error.message);
+    }
+  }
+
+  const nextWaiting = data.queue?.find((q) => ['Waiting', 'Approaching'].includes(q.status));
+  const currentServing = data.queue?.find((q) => q.status === 'Now Serving');
 
   return (
     <StaffShell>
       {notice && <p className="soft-alert">{notice}</p>}
+
+      {/* Operational Quick Command Bar */}
       <div className="toolbar-panel staff-quick-bar">
-        <Link to={`/display/${businessId}`} target="_blank" className="button secondary small">
-          <MonitorPlay size={16} /> Open Waiting Room TV Display
-        </Link>
+        <div className="staff-status-indicators">
+          <span className={`queue-status-tag ${isPaused ? 'paused' : 'active'}`}>
+            <span className="dot" /> {isPaused ? 'Queue Paused' : 'Queue Active'}
+          </span>
+          <span className="branch-id-tag">
+            <Building size={14} /> {data.branch?.name || staff?.business_name}
+          </span>
+        </div>
+
+        <div className="staff-actions-cluster">
+          <button
+            className={`button small ${isPaused ? 'primary' : 'ghost'}`}
+            onClick={togglePause}
+            title="Pause or Resume Queue Acceptance"
+          >
+            {isPaused ? <><Play size={15} /> Resume Queue</> : <><Pause size={15} /> Pause Queue</>}
+          </button>
+          <Link to="/staff/walk-in" className="button small secondary">
+            <Plus size={15} /> Add Walk-in
+          </Link>
+          <Link to={`/display/${businessId}`} target="_blank" className="button small ghost" title="Open TV Waiting Room Screen">
+            <MonitorPlay size={15} /> TV Display Screen
+          </Link>
+        </div>
       </div>
+
+      {/* Next Customer Spotlight Card */}
+      <div className="next-customer-spotlight">
+        <div className="spotlight-card serving">
+          <span className="spotlight-label">NOW SERVING AT COUNTER</span>
+          {currentServing ? (
+            <div className="spotlight-body">
+              <span className="spotlight-token">#{currentServing.token_number}</span>
+              <div className="spotlight-info">
+                <strong>{currentServing.customer_name || 'Guest Customer'}</strong>
+                <span>{currentServing.service_name} &bull; {currentServing.source || 'Online'}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="spotlight-empty">Counter is currently ready for next token.</div>
+          )}
+        </div>
+
+        <div className="spotlight-card next">
+          <span className="spotlight-label">NEXT IN LINE</span>
+          {nextWaiting ? (
+            <div className="spotlight-body">
+              <span className="spotlight-token next-tok">#{nextWaiting.token_number}</span>
+              <div className="spotlight-info">
+                <strong>{nextWaiting.customer_name || 'Guest Customer'}</strong>
+                <span>{nextWaiting.service_name} &bull; {nextWaiting.source || 'Online'}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="spotlight-empty">No waiting customers in line.</div>
+          )}
+        </div>
+      </div>
+
       <section className="stats-grid">
-        <StatCard label="Waiting" value={data.summary.waiting_count || 0} caption="In active queue" icon={<ClipboardList />} />
-        <StatCard label="Now Serving" value={data.summary.serving_count || 0} caption="Current counters" icon={<Scissors />} />
-        <StatCard label="Completed" value={data.summary.completed_count || 0} caption="Today" icon={<CheckCircle2 />} />
+        <StatCard label="Waiting in Line" value={data.summary.waiting_count || 0} caption="Active queue" icon={<ClipboardList />} />
+        <StatCard label="Now Serving" value={data.summary.serving_count || 0} caption="Current counter" icon={<Scissors />} />
+        <StatCard label="Completed Today" value={data.summary.completed_count || 0} caption="Finished services" icon={<CheckCircle2 />} />
       </section>
-      <QueueTable rows={data.queue} />
+
+      <QueueTable rows={data.queue} onReload={load} />
     </StaffShell>
   );
 }
@@ -111,6 +200,8 @@ export function TodaysQueue() {
 
   useEffect(() => {
     load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   async function callNext() {
@@ -121,14 +212,13 @@ export function TodaysQueue() {
         staff: true
       });
       setMessage(result.message);
-      
-      // Audio chime and voice alert
+
       playChimeTone();
       if (result.entry?.token_number) {
         const srv = services.find((s) => s.service_id === Number(selectedService));
         announceToken(result.entry.token_number, 1, srv?.service_name);
       }
-      
+
       load();
     } catch (error) {
       setMessage(error.message);
@@ -150,7 +240,7 @@ export function TodaysQueue() {
   }
 
   return (
-    <StaffShell title="Today's Queue">
+    <StaffShell title="Live Queue Operations">
       <div className="toolbar-panel">
         <select value={selectedService} onChange={(e) => setSelectedService(e.target.value)}>
           {services.map((service) => <option key={service.service_id} value={service.service_id}>{service.service_name}</option>)}
@@ -161,39 +251,159 @@ export function TodaysQueue() {
         </Link>
         {message && <span className="toolbar-message">{message}</span>}
       </div>
-      <QueueTable rows={rows} onUpdate={updateStatus} />
+      <QueueTable rows={rows} onUpdate={updateStatus} onReload={load} />
     </StaffShell>
   );
 }
 
-function QueueTable({ rows, onUpdate }) {
+function QueueTable({ rows, onUpdate, onReload }) {
+  async function handleAction(entryId, status) {
+    if (onUpdate) {
+      onUpdate(entryId, status);
+    } else {
+      try {
+        await apiRequest(`/staff/queue/${entryId}/status`, {
+          method: 'PATCH',
+          body: { status },
+          staff: true
+        });
+        if (onReload) onReload();
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+  }
+
   return (
     <div className="panel">
-      <h2>Current Live Queue</h2>
+      <h2>Active Queue Tickets</h2>
       <table>
-        <thead><tr><th>Token</th><th>Customer</th><th>Service</th><th>Source</th><th>Status</th><th>Action</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Token</th>
+            <th>Customer</th>
+            <th>Service</th>
+            <th>Source</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.entry_id}>
-              <td>#{row.token_number}</td>
+          {rows?.map((row) => (
+            <tr key={row.entry_id} className={row.status === 'Now Serving' ? 'row-serving' : ''}>
+              <td><strong>#{row.token_number}</strong></td>
               <td>{row.customer_name || 'Customer'}</td>
               <td>{row.service_name}</td>
               <td>{row.source || 'Online'}</td>
               <td><StatusBadge status={row.status} /></td>
               <td className="table-actions">
-                {onUpdate && (
-                  <>
-                    <button className="icon-button" title="Complete" onClick={() => onUpdate(row.entry_id, 'Completed')}><CheckCircle2 size={17} /></button>
-                    <button className="icon-button" title="Skip" onClick={() => onUpdate(row.entry_id, 'Skipped')}><Scissors size={17} /></button>
-                  </>
-                )}
+                <button className="button small primary" title="Complete visit" onClick={() => handleAction(row.entry_id, 'Completed')}>
+                  <CheckCircle2 size={14} /> Complete
+                </button>
+                <button className="button small ghost" title="Skip token" onClick={() => handleAction(row.entry_id, 'Skipped')}>
+                  <Scissors size={14} /> Skip
+                </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {!rows.length && <p className="empty">No queue entries currently active.</p>}
+      {!rows?.length && <p className="empty">No queue entries currently active.</p>}
     </div>
+  );
+}
+
+export function StaffBranch() {
+  const { staff } = useAuth();
+  const [branch, setBranch] = useState(null);
+  const [form, setForm] = useState({
+    name: '',
+    branch_name: '',
+    address: '',
+    contact: '',
+    latitude: 30.7333,
+    longitude: 76.7794,
+    opening_time: '08:30:00',
+    closing_time: '18:00:00'
+  });
+  const [message, setMessage] = useState('');
+  const [status, setStatus] = useState({ loading: true, error: '' });
+
+  async function load() {
+    setStatus({ loading: true, error: '' });
+    try {
+      const data = await apiRequest('/staff/branch', { staff: true });
+      setBranch(data);
+      setForm({
+        name: data.name || '',
+        branch_name: data.branch_name || '',
+        address: data.address || '',
+        contact: data.contact || '',
+        latitude: data.latitude || 30.7333,
+        longitude: data.longitude || 76.7794,
+        opening_time: data.opening_time || '08:30:00',
+        closing_time: data.closing_time || '18:00:00'
+      });
+      setStatus({ loading: false, error: '' });
+    } catch (err) {
+      setStatus({ loading: false, error: err.message });
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function submit(e) {
+    e.preventDefault();
+    setMessage('');
+    try {
+      const result = await apiRequest('/staff/branch', {
+        method: 'PATCH',
+        body: form,
+        staff: true
+      });
+      setMessage(result.message || 'Branch settings saved.');
+      load();
+    } catch (err) {
+      setMessage(err.message);
+    }
+  }
+
+  return (
+    <StaffShell title="Branch Profile &amp; Geo Settings">
+      <div className="panel form-panel">
+        <h2>Branch Information</h2>
+        <p className="sub-text">This location data is used by the Smart Nearby Queue Recommendation system to calculate distance and navigate customers.</p>
+        {status.error && <p className="soft-alert">{status.error}</p>}
+        {message && <p className="soft-alert">{message}</p>}
+
+        <form onSubmit={submit}>
+          <label>Branch Name<input value={form.branch_name} onChange={(e) => setForm({ ...form, branch_name: e.target.value })} required /></label>
+          <label>Display Full Name<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></label>
+          <label>Street Address<input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required /></label>
+          <label>Contact Phone<input value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} required /></label>
+          <div className="grid-2">
+            <label>Latitude<input type="number" step="0.0001" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: Number(e.target.value) })} required /></label>
+            <label>Longitude<input type="number" step="0.0001" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: Number(e.target.value) })} required /></label>
+          </div>
+          <div className="grid-2">
+            <label>Opening Time<input type="time" value={form.opening_time.slice(0, 5)} onChange={(e) => setForm({ ...form, opening_time: `${e.target.value}:00` })} required /></label>
+            <label>Closing Time<input type="time" value={form.closing_time.slice(0, 5)} onChange={(e) => setForm({ ...form, closing_time: `${e.target.value}:00` })} required /></label>
+          </div>
+          <div className="form-actions-row">
+            <button className="button primary">Save Branch Settings</button>
+            <button
+              type="button"
+              className="button ghost"
+              onClick={() => openMapNavigation(form.latitude, form.longitude, form.address, form.name)}
+            >
+              <Navigation size={14} /> Preview on Map
+            </button>
+          </div>
+        </form>
+      </div>
+    </StaffShell>
   );
 }
 
@@ -203,7 +413,7 @@ export function StaffAppointments() {
     apiRequest('/staff/appointments', { staff: true }).then(setRows).catch(() => setRows([]));
   }, []);
   return (
-    <StaffShell title="Today's Appointments">
+    <StaffShell title="Today's Appointments Schedule">
       <div className="panel">
         <div className="table-header-row">
           <h2>Appointments Schedule</h2>
@@ -309,7 +519,7 @@ export function StaffStatistics() {
   }
 
   return (
-    <StaffShell title="Queue Statistics">
+    <StaffShell title="Queue Analytics &amp; Performance">
       <div className="toolbar-panel">
         <button className="button ghost small" onClick={exportStats}>
           <Download size={15} /> Export Analytics Report
@@ -334,7 +544,7 @@ export function StaffHistory() {
   }
 
   return (
-    <StaffShell title="Historical Queue Information">
+    <StaffShell title="Historical Queue Logs">
       <div className="panel">
         <div className="table-header-row">
           <h2>Queue History Logs</h2>
@@ -353,4 +563,3 @@ export function StaffHistory() {
     </StaffShell>
   );
 }
-

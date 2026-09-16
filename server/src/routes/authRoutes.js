@@ -83,4 +83,63 @@ router.post('/staff/login', async (req, res, next) => {
   }
 });
 
+router.post('/staff/signup', async (req, res, next) => {
+  try {
+    const { business_name, business_type = 'Clinic', name, email, phone, password } = req.body;
+    if (!business_name || !name || !email || !password) {
+      return res.status(400).json({ message: 'Business name, staff name, email and password are required.' });
+    }
+
+    // 1. Create or find business
+    const [bizResult] = await pool.execute(
+      'INSERT INTO businesses (name, type, address, contact, opening_time, closing_time) VALUES (?, ?, ?, ?, ?, ?)',
+      [business_name, business_type, 'Main Branch Address', phone || '+1 555-0000', '09:00:00', '18:00:00']
+    );
+    const businessId = bizResult.insertId;
+
+    // 2. Hash password & insert staff
+    const passwordHash = await bcrypt.hash(password, 10);
+    const [staffResult] = await pool.execute(
+      'INSERT INTO staff (business_id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
+      [businessId, name, email, phone || '', passwordHash, 'Manager']
+    );
+
+    const token = signToken({
+      id: staffResult.insertId,
+      type: 'staff',
+      business_id: businessId,
+      name,
+      email
+    });
+
+    res.status(201).json({
+      token,
+      staff: {
+        staff_id: staffResult.insertId,
+        business_id: businessId,
+        business_name,
+        business_type,
+        name,
+        email,
+        role: 'Manager'
+      }
+    });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: 'A staff account with this email already exists.' });
+    next(error);
+  }
+});
+
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email || !email.includes('@')) {
+    return res.status(400).json({ message: 'A valid email is required.' });
+  }
+  // Generic safe response to prevent email enumeration
+  res.json({
+    success: true,
+    message: 'If an account exists with this email, a password reset link has been sent.'
+  });
+});
+
 export default router;

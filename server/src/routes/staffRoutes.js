@@ -248,6 +248,57 @@ router.get('/statistics', async (req, res, next) => {
   }
 });
 
+router.patch('/queue/pause', async (req, res, next) => {
+  try {
+    const businessId = req.auth.business_id;
+    const [biz] = await pool.execute('SELECT is_paused FROM businesses WHERE business_id = ?', [businessId]);
+    if (!biz.length) return res.status(404).json({ message: 'Business not found.' });
+
+    const newPaused = req.body.is_paused !== undefined ? req.body.is_paused : !biz[0].is_paused;
+    await pool.execute('UPDATE businesses SET is_paused = ? WHERE business_id = ?', [newPaused, businessId]);
+
+    res.json({
+      message: newPaused ? 'Queue has been paused.' : 'Queue has been resumed.',
+      is_paused: newPaused
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/branch', async (req, res, next) => {
+  try {
+    const [rows] = await pool.execute('SELECT * FROM businesses WHERE business_id = ?', [req.auth.business_id]);
+    if (!rows.length) return res.status(404).json({ message: 'Branch not found.' });
+    res.json(rows[0]);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/branch', async (req, res, next) => {
+  try {
+    const { branch_name, name, address, contact, latitude, longitude, opening_time, closing_time } = req.body;
+    await pool.execute(
+      `UPDATE businesses
+       SET branch_name = COALESCE(?, branch_name),
+           name = COALESCE(?, name),
+           address = COALESCE(?, address),
+           contact = COALESCE(?, contact),
+           latitude = COALESCE(?, latitude),
+           longitude = COALESCE(?, longitude),
+           opening_time = COALESCE(?, opening_time),
+           closing_time = COALESCE(?, closing_time)
+       WHERE business_id = ?`,
+      [branch_name, name, address, contact, latitude, longitude, opening_time, closing_time, req.auth.business_id]
+    );
+    const [updated] = await pool.execute('SELECT * FROM businesses WHERE business_id = ?', [req.auth.business_id]);
+    res.json({ message: 'Branch information updated successfully.', branch: updated[0] });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/history', async (req, res, next) => {
   try {
     const [rows] = await pool.execute(
@@ -265,3 +316,4 @@ router.get('/history', async (req, res, next) => {
 });
 
 export default router;
+

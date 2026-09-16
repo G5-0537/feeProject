@@ -4,25 +4,28 @@ INSERT INTO users (name, email, phone, password_hash) VALUES
 ('Aarav Mehta', 'aarav@example.com', '9876543210', '$2b$10$HOz8Ods58DI27jdTyeGCfeaozObAHLiQG00phZsnZDoFbHnKz8/Su'),
 ('Diya Shah', 'diya@example.com', '9876501234', '$2b$10$HOz8Ods58DI27jdTyeGCfeaozObAHLiQG00phZsnZDoFbHnKz8/Su');
 
-INSERT INTO businesses (name, type, address, contact, opening_time, closing_time) VALUES
-('ABC Clinic', 'Clinic', 'MG Road, Ahmedabad', '079-40001122', '09:00:00', '18:00:00'),
-('CityCare Diagnostics', 'Hospital', 'Ring Road, Surat', '0261-2345678', '08:00:00', '20:00:00'),
-('FreshBite Bistro', 'Restaurant', 'C G Road, Ahmedabad', '079-55556666', '11:00:00', '23:00:00'),
-('QuickFix Service Center', 'Service Center', 'Satellite, Ahmedabad', '079-22334455', '10:00:00', '19:00:00'),
-('Metro Trust Bank', 'Bank', 'Navrangpura, Ahmedabad', '079-66442211', '10:00:00', '16:00:00'),
-('GlowLine Salon', 'Salon', 'Vesu, Surat', '0261-4455667', '10:00:00', '21:00:00');
+INSERT INTO businesses (business_id, brand_name, branch_name, name, type, address, contact, latitude, longitude, opening_time, closing_time) VALUES
+(1, 'ABC Clinic', 'Main Branch', 'ABC Clinic – Main Branch', 'Clinic', 'MG Road, Ahmedabad', '079-40001122', 23.0225, 72.5714, '09:00:00', '18:00:00'),
+(2, 'ABC Clinic', 'Sector 17', 'ABC Clinic – Sector 17', 'Clinic', 'Sector 17 Plaza, Gandhinagar', '079-40001133', 23.2156, 72.6369, '09:00:00', '18:00:00'),
+(3, 'CityCare Diagnostics', 'Ring Road', 'CityCare Diagnostics – Ring Road', 'Hospital', 'Ring Road, Surat', '0261-2345678', 21.1702, 72.8311, '08:00:00', '20:00:00'),
+(4, 'Metro Trust Bank', 'Navrangpura', 'Metro Trust Bank – Navrangpura', 'Bank', 'Navrangpura, Ahmedabad', '079-66442211', 23.0365, 72.5611, '10:00:00', '16:00:00'),
+(5, 'Metro Trust Bank', 'Tech Park', 'Metro Trust Bank – Tech Park', 'Bank', 'Infocity, Gandhinagar', '079-66442299', 23.1900, 72.6200, '10:00:00', '17:00:00'),
+(6, 'GlowLine Salon', 'Vesu', 'GlowLine Salon – Vesu', 'Salon', 'Vesu, Surat', '0261-4455667', 21.1400, 72.7700, '10:00:00', '21:00:00');
 
 INSERT INTO services (business_id, service_name, default_duration_minutes) VALUES
 (1, 'Doctor Consultation', 10),
 (1, 'Follow-up Consultation', 7),
-(2, 'Blood Test', 5),
-(2, 'X-Ray', 15),
-(3, 'Table Booking', 12),
-(4, 'Device Diagnosis', 20),
+(2, 'Doctor Consultation', 10),
+(2, 'Follow-up Consultation', 7),
+(3, 'Blood Test', 5),
+(3, 'X-Ray', 15),
+(4, 'Account Service', 12),
+(4, 'Loan Enquiry', 18),
 (5, 'Account Service', 12),
 (5, 'Loan Enquiry', 18),
 (6, 'Haircut', 25),
 (6, 'Skin Consultation', 20);
+
 
 INSERT INTO staff (business_id, name, email, password_hash, role) VALUES
 (1, 'Receptionist 1', 'staff@abcclinic.com', '$2b$10$HOz8Ods58DI27jdTyeGCfeaozObAHLiQG00phZsnZDoFbHnKz8/Su', 'Receptionist'),

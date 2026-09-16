@@ -2,70 +2,218 @@
  * In-Browser Realistic Mock Database & REST API Dispatcher
  * Activates automatically when the backend API is unreachable (e.g. on GitHub Pages),
  * allowing full customer & staff interactive testing without a running MySQL server.
+ * Supports Multi-Branch Networks & Smart Nearby Queue Recommendations.
  */
 
-const STORAGE_KEY = 'queless_mock_db_v2';
+import { calculateDistance, DEFAULT_COORDINATES } from '../utils/geo.js';
+
+const STORAGE_KEY = 'queless_mock_db_v3';
 
 const INITIAL_SEED_DATA = {
   businesses: [
+    // --- APEX HEALTH CLINIC BRANCH NETWORK ---
     {
       business_id: 1,
-      name: 'Apex Health Clinic',
+      brand_name: 'Apex Health Clinic',
+      branch_name: 'Main Branch',
+      name: 'Apex Health Clinic – Main Branch',
       type: 'Clinic',
       address: '104 Medical Plaza, Central Avenue',
       contact: '+1 (555) 234-8900',
+      latitude: 30.7333,
+      longitude: 76.7794,
       opening_time: '08:30:00',
       closing_time: '18:00:00',
+      is_paused: false,
       service_count: 3,
-      waiting_now: 3,
+      waiting_now: 12,
       current_token: 39,
+      average_duration: 15,
     },
     {
+      business_id: 10,
+      brand_name: 'Apex Health Clinic',
+      branch_name: 'Sector 17 Branch',
+      name: 'Apex Health Clinic – Sector 17',
+      type: 'Clinic',
+      address: 'Shop 42, Sector 17 Commercial Complex',
+      contact: '+1 (555) 234-8917',
+      latitude: 30.7398,
+      longitude: 76.7827,
+      opening_time: '08:30:00',
+      closing_time: '18:00:00',
+      is_paused: false,
+      service_count: 3,
+      waiting_now: 3,
+      current_token: 15,
+      average_duration: 12,
+    },
+    {
+      business_id: 11,
+      brand_name: 'Apex Health Clinic',
+      branch_name: 'Sector 22 Branch',
+      name: 'Apex Health Clinic – Sector 22',
+      type: 'Clinic',
+      address: 'Plot 88, Sector 22 Market Circle',
+      contact: '+1 (555) 234-8922',
+      latitude: 30.7250,
+      longitude: 76.7600,
+      opening_time: '09:00:00',
+      closing_time: '19:00:00',
+      is_paused: false,
+      service_count: 2,
+      waiting_now: 6,
+      current_token: 22,
+      average_duration: 14,
+    },
+
+    // --- METROPOLITAN TRUST BANK NETWORK ---
+    {
       business_id: 2,
-      name: 'Metropolitan Trust Bank',
+      brand_name: 'Metropolitan Trust Bank',
+      branch_name: 'Financial District Branch',
+      name: 'Metropolitan Trust Bank – Financial District',
       type: 'Bank',
       address: '500 Financial District, Suite 12',
       contact: '+1 (555) 890-1234',
+      latitude: 30.7200,
+      longitude: 76.7700,
       opening_time: '09:00:00',
       closing_time: '16:30:00',
+      is_paused: false,
       service_count: 2,
-      waiting_now: 4,
+      waiting_now: 14,
       current_token: 52,
+      average_duration: 8,
     },
     {
-      business_id: 3,
-      name: 'Luxe Salon & Wellness',
-      type: 'Salon',
-      address: '77 Fashion Boulevard',
-      contact: '+1 (555) 432-6789',
-      opening_time: '10:00:00',
-      closing_time: '20:00:00',
+      business_id: 20,
+      brand_name: 'Metropolitan Trust Bank',
+      branch_name: 'Tech Park Branch',
+      name: 'Metropolitan Trust Bank – Tech Park',
+      type: 'Bank',
+      address: 'Tower B, Silicon Tech Park',
+      contact: '+1 (555) 890-5678',
+      latitude: 30.7500,
+      longitude: 76.8000,
+      opening_time: '09:00:00',
+      closing_time: '17:00:00',
+      is_paused: false,
       service_count: 2,
       waiting_now: 2,
       current_token: 18,
+      average_duration: 7,
+    },
+
+    // --- LUXE SALON & WELLNESS ---
+    {
+      business_id: 3,
+      brand_name: 'Luxe Salon & Wellness',
+      branch_name: 'Fashion Boulevard',
+      name: 'Luxe Salon & Wellness – Fashion Blvd',
+      type: 'Salon',
+      address: '77 Fashion Boulevard',
+      contact: '+1 (555) 432-6789',
+      latitude: 30.7400,
+      longitude: 76.7650,
+      opening_time: '10:00:00',
+      closing_time: '20:00:00',
+      is_paused: false,
+      service_count: 2,
+      waiting_now: 2,
+      current_token: 18,
+      average_duration: 35,
     },
     {
+      business_id: 30,
+      brand_name: 'Luxe Salon & Wellness',
+      branch_name: 'Galleria Mall',
+      name: 'Luxe Salon & Wellness – Galleria Mall',
+      type: 'Salon',
+      address: '2nd Floor, Galleria Luxury Mall',
+      contact: '+1 (555) 432-1100',
+      latitude: 30.7280,
+      longitude: 76.7850,
+      opening_time: '10:00:00',
+      closing_time: '21:00:00',
+      is_paused: false,
+      service_count: 2,
+      waiting_now: 1,
+      current_token: 12,
+      average_duration: 30,
+    },
+
+    // --- ST. JUDE GENERAL HOSPITAL ---
+    {
       business_id: 4,
-      name: 'St. Jude General Hospital',
+      brand_name: 'St. Jude General Hospital',
+      branch_name: 'Emergency Way',
+      name: 'St. Jude General Hospital – Emergency Way',
       type: 'Hospital',
       address: '1200 Emergency Way',
       contact: '+1 (555) 911-0000',
+      latitude: 30.7100,
+      longitude: 76.7500,
       opening_time: '00:00:00',
       closing_time: '23:59:59',
+      is_paused: false,
       service_count: 3,
-      waiting_now: 7,
+      waiting_now: 16,
       current_token: 104,
+      average_duration: 15,
     },
+    {
+      business_id: 40,
+      brand_name: 'St. Jude General Hospital',
+      branch_name: 'North Annex',
+      name: 'St. Jude General Hospital – North Annex',
+      type: 'Hospital',
+      address: '450 North Medical Campus',
+      contact: '+1 (555) 911-4400',
+      latitude: 30.7450,
+      longitude: 76.7900,
+      opening_time: '08:00:00',
+      closing_time: '22:00:00',
+      is_paused: false,
+      service_count: 2,
+      waiting_now: 4,
+      current_token: 45,
+      average_duration: 12,
+    }
   ],
+
   services: [
-    { service_id: 1, business_id: 1, service_name: 'General Physician Consultation', default_duration_minutes: 15, calculated_average_minutes: 14, current_token: 39, waiting_now: 3, completed_count: 28 },
-    { service_id: 2, business_id: 1, service_name: 'Pediatric Care & Vaccines', default_duration_minutes: 20, calculated_average_minutes: 18, current_token: 12, waiting_now: 1, completed_count: 15 },
-    { service_id: 3, business_id: 1, service_name: 'Lab Diagnostics & Blood Test', default_duration_minutes: 10, calculated_average_minutes: 8, current_token: 45, waiting_now: 1, completed_count: 42 },
-    { service_id: 4, business_id: 2, service_name: 'Cashier & Teller Services', default_duration_minutes: 8, calculated_average_minutes: 7, current_token: 52, waiting_now: 3, completed_count: 85 },
-    { service_id: 5, business_id: 2, service_name: 'Loan & Advisory Desk', default_duration_minutes: 30, calculated_average_minutes: 25, current_token: 8, waiting_now: 1, completed_count: 12 },
+    // Apex Main (id: 1)
+    { service_id: 1, business_id: 1, service_name: 'General Physician Consultation', default_duration_minutes: 15, calculated_average_minutes: 14, current_token: 39, waiting_now: 12, completed_count: 28 },
+    { service_id: 2, business_id: 1, service_name: 'Pediatric Care & Vaccines', default_duration_minutes: 20, calculated_average_minutes: 18, current_token: 12, waiting_now: 3, completed_count: 15 },
+    { service_id: 3, business_id: 1, service_name: 'Lab Diagnostics & Blood Test', default_duration_minutes: 10, calculated_average_minutes: 8, current_token: 45, waiting_now: 2, completed_count: 42 },
+
+    // Apex Sector 17 (id: 10)
+    { service_id: 101, business_id: 10, service_name: 'General Physician Consultation', default_duration_minutes: 15, calculated_average_minutes: 12, current_token: 15, waiting_now: 3, completed_count: 34 },
+    { service_id: 102, business_id: 10, service_name: 'Pediatric Care & Vaccines', default_duration_minutes: 20, calculated_average_minutes: 16, current_token: 8, waiting_now: 1, completed_count: 20 },
+    { service_id: 103, business_id: 10, service_name: 'Lab Diagnostics & Blood Test', default_duration_minutes: 10, calculated_average_minutes: 7, current_token: 24, waiting_now: 1, completed_count: 38 },
+
+    // Apex Sector 22 (id: 11)
+    { service_id: 111, business_id: 11, service_name: 'General Physician Consultation', default_duration_minutes: 15, calculated_average_minutes: 13, current_token: 22, waiting_now: 6, completed_count: 18 },
+    { service_id: 112, business_id: 11, service_name: 'Lab Diagnostics & Blood Test', default_duration_minutes: 10, calculated_average_minutes: 8, current_token: 14, waiting_now: 2, completed_count: 26 },
+
+    // Metro Bank Financial District (id: 2)
+    { service_id: 4, business_id: 2, service_name: 'Cashier & Teller Services', default_duration_minutes: 8, calculated_average_minutes: 7, current_token: 52, waiting_now: 14, completed_count: 85 },
+    { service_id: 5, business_id: 2, service_name: 'Loan & Advisory Desk', default_duration_minutes: 30, calculated_average_minutes: 25, current_token: 8, waiting_now: 3, completed_count: 12 },
+
+    // Metro Bank Tech Park (id: 20)
+    { service_id: 201, business_id: 20, service_name: 'Cashier & Teller Services', default_duration_minutes: 8, calculated_average_minutes: 6, current_token: 18, waiting_now: 2, completed_count: 62 },
+    { service_id: 202, business_id: 20, service_name: 'Loan & Advisory Desk', default_duration_minutes: 30, calculated_average_minutes: 22, current_token: 4, waiting_now: 1, completed_count: 15 },
+
+    // Luxe Salon
     { service_id: 6, business_id: 3, service_name: 'Hair Styling & Spa', default_duration_minutes: 45, calculated_average_minutes: 40, current_token: 18, waiting_now: 2, completed_count: 19 },
-    { service_id: 7, business_id: 4, service_name: 'OPD Consultation', default_duration_minutes: 15, calculated_average_minutes: 12, current_token: 104, waiting_now: 7, completed_count: 64 },
+    { service_id: 301, business_id: 30, service_name: 'Hair Styling & Spa', default_duration_minutes: 45, calculated_average_minutes: 35, current_token: 12, waiting_now: 1, completed_count: 24 },
+
+    // St Jude Hospital
+    { service_id: 7, business_id: 4, service_name: 'OPD Consultation', default_duration_minutes: 15, calculated_average_minutes: 12, current_token: 104, waiting_now: 16, completed_count: 64 },
+    { service_id: 401, business_id: 40, service_name: 'OPD Consultation', default_duration_minutes: 15, calculated_average_minutes: 11, current_token: 45, waiting_now: 4, completed_count: 50 },
   ],
+
   queueEntries: [
     {
       entry_id: 101,
@@ -74,13 +222,13 @@ const INITIAL_SEED_DATA = {
       customer_id: 1,
       customer_name: 'John Doe',
       customer_phone: '+1 555-0199',
-      token_number: 42,
+      token_number: 51,
       status: 'Waiting',
       source: 'Online',
       booking_type: 'queue',
       appointment_time: null,
       joined_at: new Date(Date.now() - 25 * 60000).toISOString(),
-      business_name: 'Apex Health Clinic',
+      business_name: 'Apex Health Clinic – Main Branch',
       service_name: 'General Physician Consultation',
     },
     {
@@ -96,7 +244,7 @@ const INITIAL_SEED_DATA = {
       booking_type: 'queue',
       appointment_time: null,
       joined_at: new Date(Date.now() - 40 * 60000).toISOString(),
-      business_name: 'Apex Health Clinic',
+      business_name: 'Apex Health Clinic – Main Branch',
       service_name: 'General Physician Consultation',
     },
     {
@@ -112,7 +260,7 @@ const INITIAL_SEED_DATA = {
       booking_type: 'walk-in',
       appointment_time: null,
       joined_at: new Date(Date.now() - 30 * 60000).toISOString(),
-      business_name: 'Apex Health Clinic',
+      business_name: 'Apex Health Clinic – Main Branch',
       service_name: 'General Physician Consultation',
     },
     {
@@ -128,10 +276,11 @@ const INITIAL_SEED_DATA = {
       booking_type: 'walk-in',
       appointment_time: null,
       joined_at: new Date(Date.now() - 20 * 60000).toISOString(),
-      business_name: 'Apex Health Clinic',
+      business_name: 'Apex Health Clinic – Main Branch',
       service_name: 'General Physician Consultation',
     }
   ],
+
   appointments: [
     {
       appointment_id: 1,
@@ -140,20 +289,21 @@ const INITIAL_SEED_DATA = {
       user_id: 1,
       customer_name: 'John Doe',
       phone: '+1 555-0199',
-      business_name: 'Apex Health Clinic',
+      business_name: 'Apex Health Clinic – Main Branch',
       service_name: 'General Physician Consultation',
       appointment_date: new Date().toISOString().slice(0, 10),
       appointment_time: '14:30',
       status: 'Confirmed'
     }
   ],
+
   notifications: [
     {
       notification_id: 1,
       user_id: 1,
-      message: 'Your token #42 at Apex Health Clinic is 2 people away. Please be ready nearby.',
-      type: 'Approaching',
-      created_at: new Date(Date.now() - 5 * 60000).toISOString()
+      message: 'Apex Health Clinic – Main Branch is currently busy (~50 min wait). Sector 17 branch has only 3 people waiting!',
+      type: 'System',
+      created_at: new Date(Date.now() - 2 * 60000).toISOString()
     },
     {
       notification_id: 2,
@@ -163,6 +313,7 @@ const INITIAL_SEED_DATA = {
       created_at: new Date(Date.now() - 120 * 60000).toISOString()
     }
   ],
+
   history: [
     {
       entry_id: 99,
@@ -177,7 +328,7 @@ const INITIAL_SEED_DATA = {
       booking_type: 'queue',
       completed_at: new Date(Date.now() - 15 * 60000).toISOString(),
       service_name: 'General Physician Consultation',
-      business_name: 'Apex Health Clinic',
+      business_name: 'Apex Health Clinic – Main Branch',
     },
     {
       entry_id: 98,
@@ -192,7 +343,7 @@ const INITIAL_SEED_DATA = {
       booking_type: 'appointment',
       completed_at: new Date(Date.now() - 35 * 60000).toISOString(),
       service_name: 'General Physician Consultation',
-      business_name: 'Apex Health Clinic',
+      business_name: 'Apex Health Clinic – Main Branch',
     },
     {
       entry_id: 97,
@@ -207,19 +358,23 @@ const INITIAL_SEED_DATA = {
       booking_type: 'queue',
       completed_at: new Date(Date.now() - 50 * 60000).toISOString(),
       service_name: 'General Physician Consultation',
-      business_name: 'Apex Health Clinic',
+      business_name: 'Apex Health Clinic – Main Branch',
     }
   ],
+
   customer: {
     user_id: 1,
     name: 'John Doe',
     email: 'john@example.com',
     phone: '+1 555-0199'
   },
+
   staff: {
     staff_id: 1,
     business_id: 1,
-    business_name: 'Apex Health Clinic',
+    brand_name: 'Apex Health Clinic',
+    branch_name: 'Main Branch',
+    business_name: 'Apex Health Clinic – Main Branch',
     business_type: 'Clinic',
     name: 'Clinic Desk Staff',
     email: 'clinic_staff',
@@ -262,12 +417,15 @@ export function resetMockDB() {
   saveMockDB(INITIAL_SEED_DATA);
 }
 
+/**
+ * Calculates estimated wait metrics & text
+ */
 function calculateWaitMetrics(entry, db) {
   const service = db.services.find((s) => s.service_id === entry.service_id) || db.services[0];
   const activeForService = db.queueEntries.filter(
     (e) => e.service_id === entry.service_id && ['Waiting', 'Approaching', 'Now Serving', 'waiting', 'approaching', 'now-serving'].includes(e.status)
   );
-  
+
   const peopleAhead = activeForService.filter(
     (e) => e.token_number < entry.token_number && e.status !== 'Now Serving' && e.status !== 'now-serving'
   ).length;
@@ -275,14 +433,14 @@ function calculateWaitMetrics(entry, db) {
   const currentToken = service?.current_token || db.businesses.find((b) => b.business_id === entry.business_id)?.current_token || 0;
   const avgMinutes = service?.calculated_average_minutes || service?.default_duration_minutes || 15;
   const estimatedTotalMinutes = Math.max(0, peopleAhead * avgMinutes);
-  
+
   let estimatedWait = 'Calculating...';
   if (entry.status === 'Now Serving' || entry.status === 'now-serving') {
     estimatedWait = 'Your turn now';
   } else if (estimatedTotalMinutes <= 0) {
-    estimatedWait = 'Next in line (~2-5 min)';
+    estimatedWait = 'Next in line (~2–5 min)';
   } else {
-    estimatedWait = `~${estimatedTotalMinutes} - ${estimatedTotalMinutes + 5} min`;
+    estimatedWait = `${Math.max(5, estimatedTotalMinutes - 5)}–${estimatedTotalMinutes + 5} min`;
   }
 
   let positionMessage = 'You are in queue';
@@ -306,6 +464,80 @@ function calculateWaitMetrics(entry, db) {
 }
 
 /**
+ * Calculates Smart Nearby Queue Recommendation for a given business/branch
+ */
+export function getBranchRecommendation(currentBranchId, db, userCoords = DEFAULT_COORDINATES) {
+  const current = db.businesses.find((b) => b.business_id === currentBranchId);
+  if (!current) return null;
+
+  // Calculate current branch queue metrics
+  const currentWaitCount = current.waiting_now || db.queueEntries.filter(
+    (qe) => qe.business_id === currentBranchId && ['Waiting', 'Approaching'].includes(qe.status)
+  ).length;
+
+  const currentAvgDuration = current.average_duration || 14;
+  const currentEstimatedMinutes = currentWaitCount * currentAvgDuration;
+
+  // Only trigger recommendation if wait is high (>= 25 min or >= 6 people waiting)
+  if (currentEstimatedMinutes < 25 && currentWaitCount < 6) {
+    return null;
+  }
+
+  // Find other branches of the SAME brand
+  const siblingBranches = db.businesses.filter(
+    (b) => b.brand_name === current.brand_name && b.business_id !== current.business_id && !b.is_paused
+  );
+
+  if (!siblingBranches.length) return null;
+
+  // Score candidates by shortest wait and proximity
+  let bestCandidate = null;
+  let maxTimeSaved = 0;
+
+  for (const candidate of siblingBranches) {
+    const candidateWaitCount = candidate.waiting_now || 2;
+    const candidateAvgDuration = candidate.average_duration || 12;
+    const candidateEstimatedMinutes = candidateWaitCount * candidateAvgDuration;
+
+    // Time saved
+    const timeSaved = currentEstimatedMinutes - candidateEstimatedMinutes;
+
+    // Distance calculation
+    const distanceKm = calculateDistance(
+      userCoords?.lat || current.latitude,
+      userCoords?.lng || current.longitude,
+      candidate.latitude,
+      candidate.longitude
+    );
+
+    // Criteria: Must save at least 15 minutes and be within 15 km
+    if (timeSaved >= 15 && distanceKm <= 15) {
+      if (timeSaved > maxTimeSaved) {
+        maxTimeSaved = timeSaved;
+        bestCandidate = {
+          alternative_branch_id: candidate.business_id,
+          alternative_name: candidate.name,
+          alternative_branch_name: candidate.branch_name,
+          alternative_address: candidate.address,
+          distance_km: distanceKm,
+          current_wait_minutes: currentEstimatedMinutes,
+          current_wait_text: `${Math.max(25, currentEstimatedMinutes - 5)}–${currentEstimatedMinutes + 5} min`,
+          current_people_ahead: currentWaitCount,
+          alternative_wait_minutes: candidateEstimatedMinutes,
+          alternative_wait_text: `${Math.max(5, candidateEstimatedMinutes - 3)}–${candidateEstimatedMinutes + 5} min`,
+          alternative_people_ahead: candidateWaitCount,
+          time_saved_minutes: timeSaved,
+          latitude: candidate.latitude,
+          longitude: candidate.longitude
+        };
+      }
+    }
+  }
+
+  return bestCandidate;
+}
+
+/**
  * Dispatches a simulated REST API request against the in-browser localStorage database.
  */
 export async function handleMockRequest(path, options = {}) {
@@ -317,7 +549,7 @@ export async function handleMockRequest(path, options = {}) {
   const searchParams = urlObj.searchParams;
   const body = options.body || {};
 
-  // Artificial realistic micro-delay
+  // Artificial micro-delay for realistic response
   await new Promise((r) => setTimeout(r, 60));
 
   // --- AUTH ---
@@ -333,7 +565,8 @@ export async function handleMockRequest(path, options = {}) {
       user_id: Date.now(),
       name: body.name || 'New Customer',
       email: body.email || 'customer@example.com',
-      phone: body.phone || '+1 555-0000'
+      phone: body.phone || '+1 555-0000',
+      role: 'CUSTOMER'
     };
     db.customer = newUser;
     saveMockDB(db);
@@ -350,7 +583,55 @@ export async function handleMockRequest(path, options = {}) {
     };
   }
 
-  // --- BUSINESSES ---
+  if (pathname === '/auth/staff/signup') {
+    const newBizId = Date.now();
+    const newBusiness = {
+      business_id: newBizId,
+      brand_name: body.business_name || 'My Business',
+      branch_name: 'Main Branch',
+      name: `${body.business_name || 'My Business'} – Main Branch`,
+      type: body.business_type || 'Clinic',
+      address: '101 Business Hub, Downtown',
+      contact: body.phone || '+1 555-0199',
+      latitude: 30.7350,
+      longitude: 76.7800,
+      opening_time: '09:00:00',
+      closing_time: '18:00:00',
+      is_paused: false,
+      service_count: 2,
+      waiting_now: 0,
+      current_token: 0,
+      average_duration: 15
+    };
+
+    const newStaff = {
+      staff_id: Date.now() + 1,
+      business_id: newBizId,
+      business_name: newBusiness.name,
+      business_type: newBusiness.type,
+      name: body.name || 'Branch Manager',
+      email: body.email || 'staff@example.com',
+      role: 'Manager'
+    };
+
+    db.businesses.push(newBusiness);
+    db.staff = newStaff;
+    saveMockDB(db);
+
+    return {
+      token: 'mock-staff-jwt-token',
+      staff: newStaff
+    };
+  }
+
+  if (pathname === '/auth/forgot-password' || pathname === '/auth/customer/forgot-password' || pathname === '/auth/staff/forgot-password') {
+    return {
+      success: true,
+      message: 'If an account exists with this email, a password reset link has been sent.'
+    };
+  }
+
+  // --- BUSINESSES & BRANCHES ---
   if (pathname === '/businesses' && method === 'GET') {
     const search = (searchParams.get('search') || '').toLowerCase();
     const type = searchParams.get('type') || '';
@@ -365,7 +646,13 @@ export async function handleMockRequest(path, options = {}) {
     });
 
     if (search) {
-      list = list.filter((b) => b.name.toLowerCase().includes(search) || b.address.toLowerCase().includes(search) || b.type.toLowerCase().includes(search));
+      list = list.filter((b) =>
+        b.name.toLowerCase().includes(search) ||
+        b.address.toLowerCase().includes(search) ||
+        b.type.toLowerCase().includes(search) ||
+        b.brand_name.toLowerCase().includes(search) ||
+        b.branch_name.toLowerCase().includes(search)
+      );
     }
     if (type) {
       list = list.filter((b) => b.type.toLowerCase() === type.toLowerCase());
@@ -373,15 +660,41 @@ export async function handleMockRequest(path, options = {}) {
     return list;
   }
 
+  // Get smart recommendation for a business
+  const recMatch = pathname.match(/^\/businesses\/(\d+)\/recommendation$/);
+  if (recMatch && method === 'GET') {
+    const bid = Number(recMatch[1]);
+    const userLat = searchParams.get('lat') ? Number(searchParams.get('lat')) : undefined;
+    const userLng = searchParams.get('lng') ? Number(searchParams.get('lng')) : undefined;
+    const coords = userLat && userLng ? { lat: userLat, lng: userLng } : DEFAULT_COORDINATES;
+    const recommendation = getBranchRecommendation(bid, db, coords);
+    return { recommendation };
+  }
+
+  // Get sibling branches for a business
+  const branchesMatch = pathname.match(/^\/businesses\/(\d+)\/branches$/);
+  if (branchesMatch && method === 'GET') {
+    const bid = Number(branchesMatch[1]);
+    const current = db.businesses.find((b) => b.business_id === bid);
+    if (!current) return [];
+    const siblings = db.businesses.filter((b) => b.brand_name === current.brand_name);
+    return siblings;
+  }
+
+  // Business Details with services and smart recommendation
   const businessIdMatch = pathname.match(/^\/businesses\/(\d+)$/);
   if (businessIdMatch && method === 'GET') {
     const bid = Number(businessIdMatch[1]);
     const business = db.businesses.find((b) => b.business_id === bid) || db.businesses[0];
     const services = db.services.filter((s) => s.business_id === bid).map((s) => {
       const waiting = db.queueEntries.filter((qe) => qe.service_id === s.service_id && ['Waiting', 'Approaching', 'Now Serving'].includes(qe.status)).length;
-      return { ...s, waiting_now: waiting };
+      return { ...s, waiting_now: waiting || s.waiting_now };
     });
-    return { business, services };
+
+    const siblingBranches = db.businesses.filter((b) => b.brand_name === business.brand_name && b.business_id !== business.business_id);
+    const recommendation = getBranchRecommendation(bid, db);
+
+    return { business, services, siblingBranches, recommendation };
   }
 
   // --- CUSTOMER ---
@@ -413,12 +726,15 @@ export async function handleMockRequest(path, options = {}) {
       entry = db.history.find((h) => h.entry_id === entryId) || db.queueEntries[0];
     }
     const metrics = calculateWaitMetrics(entry, db);
-    return { ...entry, ...metrics };
+    const recommendation = getBranchRecommendation(entry.business_id, db);
+    return { ...entry, ...metrics, recommendation };
   }
 
   if ((pathname === '/customer/queues/join' || pathname === '/customer/queue/join') && method === 'POST') {
     const business = db.businesses.find((b) => b.business_id === body.business_id) || db.businesses[0];
-    const service = db.services.find((s) => s.service_id === body.service_id) || db.services[0];
+    const service = db.services.find((s) => s.service_id === body.service_id && s.business_id === business.business_id) ||
+      db.services.find((s) => s.business_id === business.business_id) || db.services[0];
+
     const nextToken = Math.max(...db.queueEntries.map((e) => e.token_number), service.current_token || 30) + 1;
 
     const newEntry = {
@@ -512,24 +828,60 @@ export async function handleMockRequest(path, options = {}) {
 
   // --- STAFF ---
   if (pathname === '/staff/dashboard') {
-    const waiting = db.queueEntries.filter((e) => ['Waiting', 'Approaching'].includes(e.status)).length;
-    const serving = db.queueEntries.filter((e) => e.status === 'Now Serving').length;
-    const completed = db.history.filter((e) => e.status === 'Completed').length;
-    const skipped = db.history.filter((e) => e.status === 'Skipped').length;
+    const currentBiz = db.businesses.find((b) => b.business_id === db.staff.business_id) || db.businesses[0];
+    const waiting = db.queueEntries.filter((e) => e.business_id === currentBiz.business_id && ['Waiting', 'Approaching'].includes(e.status)).length;
+    const serving = db.queueEntries.filter((e) => e.business_id === currentBiz.business_id && e.status === 'Now Serving').length;
+    const completed = db.history.filter((e) => e.business_id === currentBiz.business_id && e.status === 'Completed').length;
+    const skipped = db.history.filter((e) => e.business_id === currentBiz.business_id && e.status === 'Skipped').length;
+    const queueList = db.queueEntries.filter((e) => e.business_id === currentBiz.business_id);
 
     return {
       summary: {
         waiting_count: waiting,
         serving_count: serving,
         completed_count: completed,
-        skipped_count: skipped
+        skipped_count: skipped,
+        is_paused: currentBiz.is_paused || false,
+        estimated_queue_wait: `${waiting * (currentBiz.average_duration || 12)} min`
       },
-      queue: db.queueEntries
+      branch: currentBiz,
+      queue: queueList
     };
   }
 
   if (pathname === '/staff/queue') {
-    return db.queueEntries;
+    const currentBizId = db.staff.business_id || 1;
+    return db.queueEntries.filter((e) => e.business_id === currentBizId);
+  }
+
+  // Pause / Resume Queue toggle
+  if ((pathname === '/staff/queue/pause' || pathname === '/staff/queue/toggle-pause') && method === 'PATCH') {
+    const currentBiz = db.businesses.find((b) => b.business_id === db.staff.business_id) || db.businesses[0];
+    currentBiz.is_paused = body.is_paused !== undefined ? body.is_paused : !currentBiz.is_paused;
+    saveMockDB(db);
+    return {
+      message: currentBiz.is_paused ? 'Queue has been paused.' : 'Queue has resumed.',
+      is_paused: currentBiz.is_paused
+    };
+  }
+
+  // Branch Profile & Settings for Staff
+  if (pathname === '/staff/branch' && method === 'GET') {
+    const currentBiz = db.businesses.find((b) => b.business_id === db.staff.business_id) || db.businesses[0];
+    return currentBiz;
+  }
+
+  if (pathname === '/staff/branch' && method === 'PATCH') {
+    const currentBiz = db.businesses.find((b) => b.business_id === db.staff.business_id) || db.businesses[0];
+    if (body.branch_name) currentBiz.branch_name = body.branch_name;
+    if (body.name) currentBiz.name = body.name;
+    if (body.address) currentBiz.address = body.address;
+    if (body.contact) currentBiz.contact = body.contact;
+    if (body.latitude !== undefined) currentBiz.latitude = Number(body.latitude);
+    if (body.longitude !== undefined) currentBiz.longitude = Number(body.longitude);
+    if (body.is_paused !== undefined) currentBiz.is_paused = Boolean(body.is_paused);
+    saveMockDB(db);
+    return { message: 'Branch information updated successfully.', branch: currentBiz };
   }
 
   if (pathname === '/staff/appointments') {
@@ -537,11 +889,12 @@ export async function handleMockRequest(path, options = {}) {
   }
 
   if (pathname === '/staff/walk-ins' && method === 'POST') {
-    const service = db.services.find((s) => s.service_id === body.service_id) || db.services[0];
+    const currentBiz = db.businesses.find((b) => b.business_id === db.staff.business_id) || db.businesses[0];
+    const service = db.services.find((s) => s.service_id === body.service_id && s.business_id === currentBiz.business_id) || db.services[0];
     const nextToken = Math.max(...db.queueEntries.map((e) => e.token_number), 50) + 1;
     const newEntry = {
       entry_id: Date.now(),
-      business_id: 1,
+      business_id: currentBiz.business_id,
       service_id: service.service_id,
       customer_id: null,
       customer_name: body.name || 'Walk-in Guest',
@@ -552,7 +905,7 @@ export async function handleMockRequest(path, options = {}) {
       booking_type: 'walk-in',
       appointment_time: null,
       joined_at: new Date().toISOString(),
-      business_name: 'Apex Health Clinic',
+      business_name: currentBiz.name,
       service_name: service.service_name
     };
     db.queueEntries.push(newEntry);
@@ -561,9 +914,11 @@ export async function handleMockRequest(path, options = {}) {
   }
 
   if (pathname === '/staff/queue/call-next' && method === 'POST') {
-    const serviceId = body.service_id ? Number(body.service_id) : db.services[0].service_id;
+    const currentBizId = db.staff.business_id || 1;
+    const serviceId = body.service_id ? Number(body.service_id) : db.services.find((s) => s.business_id === currentBizId)?.service_id || db.services[0].service_id;
+
     // Find current serving and mark as completed
-    const currentServing = db.queueEntries.find((e) => e.service_id === serviceId && e.status === 'Now Serving');
+    const currentServing = db.queueEntries.find((e) => e.business_id === currentBizId && e.service_id === serviceId && e.status === 'Now Serving');
     if (currentServing) {
       currentServing.status = 'Completed';
       currentServing.completed_at = new Date().toISOString();
@@ -573,7 +928,7 @@ export async function handleMockRequest(path, options = {}) {
     }
 
     // Find next waiting
-    const nextEntry = db.queueEntries.find((e) => e.service_id === serviceId && ['Waiting', 'Approaching'].includes(e.status));
+    const nextEntry = db.queueEntries.find((e) => e.business_id === currentBizId && e.service_id === serviceId && ['Waiting', 'Approaching'].includes(e.status));
     if (!nextEntry) {
       throw new Error('No waiting customers in this queue.');
     }
@@ -584,11 +939,11 @@ export async function handleMockRequest(path, options = {}) {
     // Update business and service current_token
     const srv = db.services.find((s) => s.service_id === serviceId);
     if (srv) srv.current_token = nextEntry.token_number;
-    const bsn = db.businesses.find((b) => b.business_id === 1);
+    const bsn = db.businesses.find((b) => b.business_id === currentBizId);
     if (bsn) bsn.current_token = nextEntry.token_number;
 
     // Mark next 1-2 waiting as Approaching
-    const nextWaiting = db.queueEntries.filter((e) => e.service_id === serviceId && e.status === 'Waiting');
+    const nextWaiting = db.queueEntries.filter((e) => e.business_id === currentBizId && e.service_id === serviceId && e.status === 'Waiting');
     if (nextWaiting[0]) nextWaiting[0].status = 'Approaching';
 
     saveMockDB(db);
@@ -617,13 +972,15 @@ export async function handleMockRequest(path, options = {}) {
   }
 
   if (pathname === '/staff/services' && method === 'GET') {
-    return db.services.filter((s) => s.business_id === 1);
+    const currentBizId = db.staff.business_id || 1;
+    return db.services.filter((s) => s.business_id === currentBizId);
   }
 
   if (pathname === '/staff/services' && method === 'POST') {
+    const currentBizId = db.staff.business_id || 1;
     const newService = {
       service_id: Date.now(),
-      business_id: 1,
+      business_id: currentBizId,
       service_name: body.service_name,
       default_duration_minutes: Number(body.default_duration_minutes) || 15,
       calculated_average_minutes: Number(body.default_duration_minutes) || 15,
@@ -636,14 +993,15 @@ export async function handleMockRequest(path, options = {}) {
   }
 
   if (pathname === '/staff/statistics') {
+    const currentBizId = db.staff.business_id || 1;
     return {
       statusCounts: [
-        { status: 'Completed', total: db.history.filter((h) => h.status === 'Completed').length + 42 },
-        { status: 'Now Serving', total: db.queueEntries.filter((h) => h.status === 'Now Serving').length },
-        { status: 'Waiting', total: db.queueEntries.filter((h) => ['Waiting', 'Approaching'].includes(h.status)).length },
-        { status: 'Skipped', total: db.history.filter((h) => h.status === 'Skipped').length + 3 }
+        { status: 'Completed', total: db.history.filter((h) => h.business_id === currentBizId && h.status === 'Completed').length + 42 },
+        { status: 'Now Serving', total: db.queueEntries.filter((h) => h.business_id === currentBizId && h.status === 'Now Serving').length },
+        { status: 'Waiting', total: db.queueEntries.filter((h) => h.business_id === currentBizId && ['Waiting', 'Approaching'].includes(h.status)).length },
+        { status: 'Skipped', total: db.history.filter((h) => h.business_id === currentBizId && h.status === 'Skipped').length + 3 }
       ],
-      serviceStats: db.services.map((s) => ({
+      serviceStats: db.services.filter((s) => s.business_id === currentBizId).map((s) => ({
         service_name: s.service_name,
         completed_count: s.completed_count || 12,
         calculated_average_minutes: s.calculated_average_minutes || s.default_duration_minutes
@@ -656,8 +1014,9 @@ export async function handleMockRequest(path, options = {}) {
   }
 
   if (pathname === '/staff/history') {
+    const currentBizId = db.staff.business_id || 1;
     const todayStr = new Date().toISOString().slice(0, 10);
-    return db.history.map((h) => ({
+    return db.history.filter((h) => !h.business_id || h.business_id === currentBizId).map((h) => ({
       queue_date: h.queue_date || todayStr,
       service_name: h.service_name,
       status: h.status,
@@ -665,6 +1024,6 @@ export async function handleMockRequest(path, options = {}) {
     }));
   }
 
-  // Fallback for any other endpoint
+  // Fallback
   return { success: true };
 }

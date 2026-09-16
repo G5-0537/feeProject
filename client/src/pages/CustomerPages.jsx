@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Bell, Building2, CalendarDays, History, LayoutDashboard, RefreshCw, Settings, Ticket, UserRound, XCircle } from 'lucide-react';
+import { Bell, Building2, CalendarDays, History, LayoutDashboard, RefreshCw, Settings, Ticket, UserRound, XCircle, Navigation, MapPin } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import DashboardShell from '../components/DashboardShell.jsx';
 import StatCard from '../components/StatCard.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
+import QRCodePass from '../components/QRCodePass.jsx';
+import SmartRecommendationCard from '../components/SmartRecommendationCard.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { apiRequest } from '../services/api.js';
+import { openMapNavigation } from '../utils/geo.js';
 
 const customerLinks = [
   { to: '/customer/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
@@ -41,7 +44,7 @@ export function CustomerDashboard() {
   const [status, setStatus] = useState({ loading: true, error: '' });
 
   async function loadDashboard() {
-    setStatus({ loading: true, error: '' });
+    setStatus((prev) => ({ ...prev, error: '' }));
     apiRequest('/customer/dashboard')
       .then((result) => {
         setData(result);
@@ -51,6 +54,7 @@ export function CustomerDashboard() {
   }
 
   async function cancelQueue(entryId) {
+    if (!confirm('Are you sure you want to leave this queue?')) return;
     try {
       await apiRequest(`/customer/queues/${entryId}/cancel`, { method: 'PATCH' });
       loadDashboard();
@@ -61,31 +65,34 @@ export function CustomerDashboard() {
 
   useEffect(() => {
     loadDashboard();
+    const interval = setInterval(loadDashboard, 6000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
-    <CustomerShell title={`Welcome, ${customer?.name || 'Customer'}`} subtitle="Here is your queue position, appointments and recent queue history.">
+    <CustomerShell title={`Welcome, ${customer?.name || 'Customer'}`} subtitle="Here is your real-time queue position, upcoming visits, and active status.">
       {status.error && <p className="soft-alert">{status.error}</p>}
       <div className="toolbar-panel">
         <button className="button ghost small" onClick={loadDashboard}><RefreshCw size={16} /> Refresh Status</button>
-        {status.loading && <span className="toolbar-message">Updating dashboard...</span>}
+        <Link to="/businesses" className="button primary small"><Building2 size={16} /> Find &amp; Join Queue</Link>
+        {status.loading && <span className="toolbar-message">Live updating...</span>}
       </div>
       <section className="stats-grid">
-        <StatCard label="Active Queues" value={data.activeQueues.length} caption="Currently waiting" icon={<Ticket />} />
-        <StatCard label="Upcoming" value={data.appointments.length} caption="Recent appointments" icon={<CalendarDays />} />
-        <StatCard label="Notifications" value={data.notifications.length} caption="Latest updates" icon={<Bell />} />
+        <StatCard label="Active Queues" value={data.activeQueues.length} caption="Currently in line" icon={<Ticket />} />
+        <StatCard label="Appointments" value={data.appointments.length} caption="Upcoming visits" icon={<CalendarDays />} />
+        <StatCard label="Notifications" value={data.notifications.length} caption="Latest alerts" icon={<Bell />} />
       </section>
       <section className="content-grid">
         <div className="panel">
-          <h2>Active Queue</h2>
+          <h2>Active Queue Tickets</h2>
           {data.activeQueues.map((item) => (
             <article className="queue-row" key={item.entry_id}>
               <Link to={`/customer/queue/${item.entry_id}`}>
                 <strong>Token #{item.token_number}</strong>
-                <span>{item.business_name} • {item.service_name}</span>
+                <span>{item.business_name} &bull; {item.service_name}</span>
               </Link>
               <div className="queue-row-metrics">
-                <span>Now #{item.current_token}</span>
+                <span>Serving #{item.current_token}</span>
                 <span>{item.people_ahead} ahead</span>
                 <span>{item.estimated_wait}</span>
                 <StatusBadge status={item.status} />
@@ -93,37 +100,44 @@ export function CustomerDashboard() {
               <button className="icon-button" title="Cancel queue entry" onClick={() => cancelQueue(item.entry_id)}><XCircle size={17} /></button>
             </article>
           ))}
-          {!status.loading && !data.activeQueues.length && <p className="empty">No active queue entries.</p>}
+          {!status.loading && !data.activeQueues.length && (
+            <div className="empty-callout">
+              <p className="empty">You are not currently waiting in any queue.</p>
+              <Link to="/businesses" className="button secondary small">Browse Nearby Queues</Link>
+            </div>
+          )}
         </div>
         <div className="panel">
           <h2>Recent Appointments</h2>
           {data.appointments.map((item) => (
             <div className="list-row" key={item.appointment_id}>
-              <span>{item.business_name} • {item.service_name}</span>
+              <div>
+                <strong>{item.service_name}</strong>
+                <p className="sub-text">{item.business_name} &bull; {item.appointment_date} at {item.appointment_time}</p>
+              </div>
               <StatusBadge status={item.status} />
             </div>
           ))}
-          {!status.loading && !data.appointments.length && <p className="empty">No appointments yet.</p>}
+          {!status.loading && !data.appointments.length && <p className="empty">No upcoming appointments.</p>}
         </div>
         <div className="panel">
           <h2>Queue History</h2>
           {data.queueHistory.map((item) => (
             <div className="list-row" key={item.entry_id}>
-              <span>#{item.token_number} • {item.business_name}</span>
+              <span>#{item.token_number} &bull; {item.business_name}</span>
               <StatusBadge status={item.status} />
             </div>
           ))}
-          {!status.loading && !data.queueHistory.length && <p className="empty">No completed or cancelled queues yet.</p>}
+          {!status.loading && !data.queueHistory.length && <p className="empty">No completed queues yet.</p>}
         </div>
       </section>
     </CustomerShell>
   );
 }
 
-import QRCodePass from '../components/QRCodePass.jsx';
-
 export function QueueTracking() {
   const { entryId } = useParams();
+  const navigate = useNavigate();
   const [snapshot, setSnapshot] = useState(null);
   const [notice, setNotice] = useState('');
 
@@ -135,40 +149,83 @@ export function QueueTracking() {
         if (alive) setSnapshot(data);
       } catch {
         if (alive) {
-          setNotice('Queue entry could not be loaded. Make sure you are logged in and MySQL is running.');
+          setNotice('Queue entry could not be loaded. Please verify your login session.');
           setSnapshot(null);
         }
       }
     }
     load();
-    const interval = setInterval(load, 10000);
+    const interval = setInterval(load, 5000);
     return () => {
       alive = false;
       clearInterval(interval);
     };
   }, [entryId]);
 
-  if (!snapshot) return <CustomerShell title="Queue Tracking"><div className="panel">{notice || 'Loading queue...'}</div></CustomerShell>;
+  async function handleCancelQueue() {
+    if (!confirm('Are you sure you want to cancel this queue entry?')) return;
+    try {
+      await apiRequest(`/customer/queues/${entryId}/cancel`, { method: 'PATCH' });
+      navigate('/customer/dashboard');
+    } catch (error) {
+      setNotice(error.message);
+    }
+  }
+
+  if (!snapshot) {
+    return (
+      <CustomerShell title="Queue Tracking">
+        <div className="panel">{notice || 'Loading queue status...'}</div>
+      </CustomerShell>
+    );
+  }
 
   return (
-    <CustomerShell title="Queue Tracking" subtitle={`${snapshot.business_name} • ${snapshot.service_name}`}>
+    <CustomerShell title="Live Queue Tracking" subtitle={`${snapshot.business_name} • ${snapshot.service_name}`}>
       {notice && <p className="soft-alert">{notice}</p>}
+
+      {/* If current branch is crowded, show Smart Recommendation */}
+      {snapshot.recommendation && snapshot.status !== 'Completed' && (
+        <SmartRecommendationCard
+          currentBranch={{ name: snapshot.business_name }}
+          recommendation={snapshot.recommendation}
+          onSelectAlternative={(altId) => navigate(`/businesses/${altId}`)}
+          onJoinAlternative={(altId) => navigate(`/businesses/${altId}`)}
+        />
+      )}
+
       <section className="tracking-board">
         <QueueMetric label="Your Token" value={`#${snapshot.token_number}`} />
-        <QueueMetric label="Now Serving" value={`#${snapshot.current_token}`} />
+        <QueueMetric label="Now Serving" value={`#${snapshot.current_token || 0}`} />
         <QueueMetric label="People Ahead" value={snapshot.people_ahead} />
         <QueueMetric label="Estimated Wait" value={snapshot.estimated_wait} />
       </section>
+
       <div className="tracking-details-grid">
         <div className="panel tracking-status">
           <StatusBadge status={snapshot.status} />
           <h2>{snapshot.position_message}</h2>
-          <p>Waiting time is an estimate based on people ahead and historical average service duration.</p>
-          <div className="progress-track"><span style={{ width: `${Math.max(8, 100 - snapshot.people_ahead * 9)}%` }} /></div>
+          <p>Estimated waiting time updates dynamically based on active queue throughput.</p>
+          <div className="progress-track">
+            <span style={{ width: `${Math.max(10, 100 - snapshot.people_ahead * 9)}%` }} />
+          </div>
+
+          <div className="tracking-actions-bar">
+            <button
+              className="button ghost small"
+              onClick={() => openMapNavigation(snapshot.latitude, snapshot.longitude, snapshot.business_address, snapshot.business_name)}
+            >
+              <Navigation size={14} /> Navigate to Branch
+            </button>
+            <button className="button danger small ghost" onClick={handleCancelQueue}>
+              <XCircle size={14} /> Cancel Queue Entry
+            </button>
+          </div>
         </div>
+
         <div className="panel qr-pass-panel">
-          <QRCodePass 
-            value={`QUELESS:${snapshot.business_name}:TOKEN-${snapshot.token_number}:ENTRY-${snapshot.entry_id}`} 
+          <QRCodePass
+            value={`QUELESS:${snapshot.business_name}:TOKEN-${snapshot.token_number}:ENTRY-${snapshot.entry_id}`}
             label={`Token #${snapshot.token_number} Digital Verification Pass`}
           />
         </div>
@@ -176,7 +233,6 @@ export function QueueTracking() {
     </CustomerShell>
   );
 }
-
 
 function QueueMetric({ label, value }) {
   return (
@@ -200,7 +256,7 @@ export function CustomerHistory({ type }) {
     <CustomerShell title={title}>
       <div className="panel">
         <table>
-          <thead><tr><th>Business</th><th>Service</th><th>Token/Date</th><th>Status</th></tr></thead>
+          <thead><tr><th>Business Branch</th><th>Service</th><th>Token / Date</th><th>Status</th></tr></thead>
           <tbody>
             {rows.map((row) => (
               <tr key={row.appointment_id || row.entry_id}>
@@ -212,7 +268,7 @@ export function CustomerHistory({ type }) {
             ))}
           </tbody>
         </table>
-        {!rows.length && <p className="empty">No records yet.</p>}
+        {!rows.length && <p className="empty">No records found.</p>}
       </div>
     </CustomerShell>
   );

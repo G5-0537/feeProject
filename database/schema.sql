@@ -27,16 +27,22 @@ CREATE TABLE users (
 
 CREATE TABLE businesses (
   business_id INT AUTO_INCREMENT PRIMARY KEY,
+  brand_name VARCHAR(120) NULL,
+  branch_name VARCHAR(100) NULL,
   name VARCHAR(140) NOT NULL,
   type ENUM('Clinic','Hospital','Restaurant','Government Office','Bank','Salon','Service Center','Other') NOT NULL,
   address VARCHAR(255) NOT NULL,
   contact VARCHAR(30) NOT NULL,
+  latitude DECIMAL(10, 7) NULL,
+  longitude DECIMAL(10, 7) NULL,
   opening_time TIME NOT NULL,
   closing_time TIME NOT NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  is_paused BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT chk_business_hours CHECK (opening_time < closing_time)
 );
+
 
 CREATE TABLE services (
   service_id INT AUTO_INCREMENT PRIMARY KEY,

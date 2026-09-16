@@ -1,11 +1,12 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import DemoBanner from './components/DemoBanner.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
 import LandingPage from './pages/LandingPage.jsx';
-import { CustomerLogin, CustomerSignup, StaffLogin } from './pages/AuthPages.jsx';
+import { CustomerLogin, CustomerSignup, StaffLogin, StaffSignup, ForgotPassword } from './pages/AuthPages.jsx';
 import { BusinessDetails, BusinessSearch } from './pages/BusinessPages.jsx';
 import { CustomerDashboard, CustomerHistory, NotificationsPage, ProfilePage, QueueTracking, SettingsPage } from './pages/CustomerPages.jsx';
-import { AddWalkIn, ServiceManagement, StaffAppointments, StaffDashboard, StaffHistory, StaffStatistics, TodaysQueue } from './pages/StaffPages.jsx';
+import { AddWalkIn, ServiceManagement, StaffAppointments, StaffDashboard, StaffHistory, StaffStatistics, TodaysQueue, StaffBranch } from './pages/StaffPages.jsx';
 import PublicDisplay from './pages/PublicDisplay.jsx';
 
 export default function App() {
@@ -13,33 +14,38 @@ export default function App() {
     <ErrorBoundary>
       <DemoBanner />
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<CustomerLogin />} />
         <Route path="/signup" element={<CustomerSignup />} />
         <Route path="/staff/login" element={<StaffLogin />} />
+        <Route path="/staff/signup" element={<StaffSignup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/businesses" element={<BusinessSearch />} />
         <Route path="/businesses/:businessId" element={<BusinessDetails />} />
         <Route path="/display/:businessId" element={<PublicDisplay />} />
 
-        <Route path="/customer/dashboard" element={<CustomerDashboard />} />
-        <Route path="/customer/queue/:entryId" element={<QueueTracking />} />
-        <Route path="/customer/appointments" element={<CustomerHistory type="appointments" />} />
-        <Route path="/customer/queues" element={<CustomerHistory type="queues" />} />
-        <Route path="/customer/notifications" element={<NotificationsPage />} />
-        <Route path="/customer/profile" element={<ProfilePage />} />
-        <Route path="/customer/settings" element={<SettingsPage />} />
+        {/* Customer Protected Routes */}
+        <Route path="/customer/dashboard" element={<ProtectedRoute role="customer"><CustomerDashboard /></ProtectedRoute>} />
+        <Route path="/customer/queue/:entryId" element={<ProtectedRoute role="customer"><QueueTracking /></ProtectedRoute>} />
+        <Route path="/customer/appointments" element={<ProtectedRoute role="customer"><CustomerHistory type="appointments" /></ProtectedRoute>} />
+        <Route path="/customer/queues" element={<ProtectedRoute role="customer"><CustomerHistory type="queues" /></ProtectedRoute>} />
+        <Route path="/customer/notifications" element={<ProtectedRoute role="customer"><NotificationsPage /></ProtectedRoute>} />
+        <Route path="/customer/profile" element={<ProtectedRoute role="customer"><ProfilePage /></ProtectedRoute>} />
+        <Route path="/customer/settings" element={<ProtectedRoute role="customer"><SettingsPage /></ProtectedRoute>} />
 
-        <Route path="/staff/dashboard" element={<StaffDashboard />} />
-        <Route path="/staff/queue" element={<TodaysQueue />} />
-        <Route path="/staff/appointments" element={<StaffAppointments />} />
-        <Route path="/staff/walk-in" element={<AddWalkIn />} />
-        <Route path="/staff/services" element={<ServiceManagement />} />
-        <Route path="/staff/statistics" element={<StaffStatistics />} />
-        <Route path="/staff/history" element={<StaffHistory />} />
+        {/* Staff Protected Routes */}
+        <Route path="/staff/dashboard" element={<ProtectedRoute role="staff"><StaffDashboard /></ProtectedRoute>} />
+        <Route path="/staff/queue" element={<ProtectedRoute role="staff"><TodaysQueue /></ProtectedRoute>} />
+        <Route path="/staff/appointments" element={<ProtectedRoute role="staff"><StaffAppointments /></ProtectedRoute>} />
+        <Route path="/staff/walk-in" element={<ProtectedRoute role="staff"><AddWalkIn /></ProtectedRoute>} />
+        <Route path="/staff/services" element={<ProtectedRoute role="staff"><ServiceManagement /></ProtectedRoute>} />
+        <Route path="/staff/branch" element={<ProtectedRoute role="staff"><StaffBranch /></ProtectedRoute>} />
+        <Route path="/staff/statistics" element={<ProtectedRoute role="staff"><StaffStatistics /></ProtectedRoute>} />
+        <Route path="/staff/history" element={<ProtectedRoute role="staff"><StaffHistory /></ProtectedRoute>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ErrorBoundary>
   );
 }
-

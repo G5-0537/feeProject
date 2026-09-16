@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../config/db.js';
+import { getSmartQueueRecommendation } from '../services/recommendationService.js';
 
 const router = Router();
 
@@ -34,6 +35,42 @@ router.get('/', async (req, res, next) => {
       [search, search, search, type, type]
     );
     res.json(rows);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:businessId/recommendation', async (req, res, next) => {
+  try {
+    const userLat = req.query.lat ? Number(req.query.lat) : null;
+    const userLng = req.query.lng ? Number(req.query.lng) : null;
+    const recommendation = await getSmartQueueRecommendation(req.params.businessId, userLat, userLng);
+    res.json({ recommendation });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:businessId/branches', async (req, res, next) => {
+  try {
+    const [current] = await pool.execute('SELECT brand_name, name FROM businesses WHERE business_id = ?', [req.params.businessId]);
+    if (!current.length) return res.status(404).json({ message: 'Business not found.' });
+    const brand = current[0].brand_name || current[0].name.split('–')[0].trim();
+    const [branches] = await pool.execute(
+      `SELECT b.*, COALESCE(MAX(qs.waiting_now), 0) AS waiting_now, COALESCE(MAX(qs.current_token), 0) AS current_token
+       FROM businesses b
+       LEFT JOIN (
+         SELECT q.business_id, MAX(q.current_token) AS current_token, SUM(qe.status IN ('Waiting','Approaching','Now Serving')) AS waiting_now
+         FROM queues q
+         LEFT JOIN queue_entries qe ON qe.queue_id = q.queue_id
+         WHERE q.queue_date = CURDATE()
+         GROUP BY q.business_id
+       ) qs ON qs.business_id = b.business_id
+       WHERE (b.brand_name = ? OR b.name LIKE CONCAT(?, '%')) AND b.is_active = TRUE
+       GROUP BY b.business_id`,
+      [brand, brand]
+    );
+    res.json(branches);
   } catch (error) {
     next(error);
   }
@@ -78,10 +115,15 @@ router.get('/:businessId', async (req, res, next) => {
       [req.params.businessId]
     );
 
-    res.json({ business: businessRows[0], services });
+    const userLat = req.query.lat ? Number(req.query.lat) : null;
+    const userLng = req.query.lng ? Number(req.query.lng) : null;
+    const recommendation = await getSmartQueueRecommendation(req.params.businessId, userLat, userLng).catch(() => null);
+
+    res.json({ business: businessRows[0], services, recommendation });
   } catch (error) {
     next(error);
   }
 });
 
 export default router;
+
