@@ -2,7 +2,9 @@ import { pool } from '../config/db.js';
 import { formatWaitRange } from './waitTimeService.js';
 
 function haversineDistance(lat1, lng1, lat2, lng2) {
-  const coordinates = [lat1, lng1, lat2, lng2].map(Number);
+  const rawCoordinates = [lat1, lng1, lat2, lng2];
+  if (rawCoordinates.some((value) => value == null || value === '')) return null;
+  const coordinates = rawCoordinates.map(Number);
   if (coordinates.some((value) => !Number.isFinite(value))) return null;
   const [aLat, aLng, bLat, bLng] = coordinates;
   const radians = (value) => (value * Math.PI) / 180;
