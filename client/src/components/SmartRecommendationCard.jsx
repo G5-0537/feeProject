@@ -17,13 +17,21 @@ export default function SmartRecommendationCard({
   const {
     alternative_branch_id,
     alternative_name,
+    alternative_branch_name,
     alternative_address,
     distance_km,
+    distance_basis,
     current_wait_text,
     current_people_ahead,
     alternative_wait_text,
     alternative_people_ahead,
     time_saved_minutes,
+    travel_included,
+    current_travel_minutes,
+    alternative_travel_minutes,
+    current_total_minutes,
+    alternative_total_minutes,
+    service_name,
     latitude,
     longitude
   } = recommendation;
@@ -53,7 +61,7 @@ export default function SmartRecommendationCard({
       <div className="rec-header">
         <div className="rec-badge">
           <Zap size={15} className="zap-pulse" />
-          <span>LONG WAIT DETECTED</span>
+          <span>FASTER {service_name || 'SERVICE'} OPTION</span>
         </div>
         <button className="rec-close-btn" onClick={handleDismiss} title="Dismiss recommendation and stay with current branch" aria-label="Dismiss recommendation">
           <X size={16} />
@@ -72,7 +80,11 @@ export default function SmartRecommendationCard({
             <span className="rec-metric-item">
               <Users size={13} /> {current_people_ahead || 0} ahead
             </span>
+            {travel_included && (
+              <span className="rec-metric-item"><Navigation size={13} /> ~{current_travel_minutes} min drive</span>
+            )}
           </div>
+          {travel_included && <small className="rec-total-line">Wait + drive: ~{current_total_minutes} min</small>}
         </div>
 
         {/* VS Indicator */}
@@ -87,7 +99,7 @@ export default function SmartRecommendationCard({
           </div>
           <h4>{alternative_name}</h4>
           <div className="rec-location-line">
-            <MapPin size={13} /> {formatDistance(distance_km)} away &bull; {alternative_address}
+            <MapPin size={13} /> {formatDistance(distance_km)} from {distance_basis || 'your location'} &bull; {alternative_address}
           </div>
           <div className="rec-metrics">
             <span className="rec-metric-item wait-low">
@@ -96,14 +108,22 @@ export default function SmartRecommendationCard({
             <span className="rec-metric-item">
               <Users size={13} /> {alternative_people_ahead || 0} ahead
             </span>
+            {travel_included && (
+              <span className="rec-metric-item"><Navigation size={13} /> ~{alternative_travel_minutes} min drive</span>
+            )}
           </div>
+          {travel_included && <small className="rec-total-line">Wait + drive: ~{alternative_total_minutes} min</small>}
         </div>
       </div>
 
       {/* Time Saved Highlight */}
       <div className="rec-savings-banner">
         <span className="savings-highlight">
-          Save approximately <strong>~{time_saved_minutes || 35} minutes</strong> by visiting the {alternative_name.split('–')[1] || alternative_name} branch.
+          {travel_included ? (
+            <>Estimated total visit time is <strong>~{time_saved_minutes} minutes shorter</strong> at {alternative_branch_name || alternative_name}, including approximate drive time. {service_name ? `Compared for ${service_name}.` : ''}</>
+          ) : (
+            <>The <strong>{service_name || 'selected'} queue is estimated to be ~{time_saved_minutes} minutes shorter</strong> at {alternative_branch_name || alternative_name}. Travel time is not included because your location is unavailable.</>
+          )}
         </span>
       </div>
 

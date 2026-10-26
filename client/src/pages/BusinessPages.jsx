@@ -238,12 +238,12 @@ export function BusinessDetails() {
     try {
       const coords = await getUserCoordinates();
       setUserCoords(coords);
-      const params = coords ? `?lat=${coords.lat}&lng=${coords.lng}` : '';
+      const params = coords && !coords.isFallback ? `?lat=${coords.lat}&lng=${coords.lng}` : '';
       const data = await apiRequest(`/businesses/${businessId}${params}`, { signal });
       setBusiness(data.business);
       setServices(data.services || []);
       setSiblingBranches(data.siblingBranches || []);
-      setRecommendation(data.recommendation || null);
+      setRecommendation(null);
       setSelectedService(String(data.services?.[0]?.service_id || ''));
       setStatus({ loading: false, error: '' });
     } catch (error) {
@@ -257,6 +257,22 @@ export function BusinessDetails() {
     loadData(controller.signal);
     return () => controller.abort();
   }, [businessId, reloadKey]);
+
+  useEffect(() => {
+    if (!selectedService) return undefined;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ service_id: selectedService });
+    if (userCoords && !userCoords.isFallback) {
+      params.set('lat', String(userCoords.lat));
+      params.set('lng', String(userCoords.lng));
+    }
+    apiRequest(`/businesses/${businessId}/recommendation?${params}`, { signal: controller.signal })
+      .then((data) => setRecommendation(data.recommendation || null))
+      .catch((error) => {
+        if (error.name !== 'AbortError') setRecommendation(null);
+      });
+    return () => controller.abort();
+  }, [businessId, selectedService, userCoords]);
 
   async function bookAppointment(serviceId = selectedService, targetBizId = businessId) {
     if (!validateBooking({ service_id: String(serviceId || ''), appointment_date: appointmentDate, appointment_time: appointmentTime })) return;
@@ -293,7 +309,22 @@ export function BusinessDetails() {
   }
 
   function handleJoinAlternative(alternativeId) {
-    joinQueue(selectedService, alternativeId);
+    const selected = services.find((service) => String(service.service_id) === String(selectedService));
+    if (!selected) return;
+
+    apiRequest(`/businesses/${alternativeId}`)
+      .then((data) => {
+        const matchingService = (data.services || []).find(
+          (service) => service.service_name.trim().toLowerCase() === selected.service_name.trim().toLowerCase()
+        );
+        if (!matchingService) {
+          showToast(`${selected.service_name} is not offered at that branch. Choose one of its available services instead.`, 'info');
+          navigate(`${businessPath}/${alternativeId}`);
+          return;
+        }
+        joinQueue(matchingService.service_id, alternativeId);
+      })
+      .catch((error) => showToast(error.message || 'Could not check this branch’s services.', 'error'));
   }
 
   if (status.loading) {

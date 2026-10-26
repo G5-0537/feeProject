@@ -89,6 +89,10 @@ Staff:
 
 Queue cancellation is a status change that preserves history; the API does not expose permanent record deletion. Appointment creation is available through `POST /api/customer/appointments`.
 
+### Smart branch recommendations
+
+On a branch's details page, QueLess can suggest another open branch from the same business when it offers the same service. It compares that service's estimated queue wait and, when the customer grants location access and both branch coordinates are available, adds an approximate drive time based on straight-line distance. It recommends the alternative only when the estimated total visit is at least 15 minutes shorter. Without usable location data, the card labels the result as a queue-wait comparison and says travel time is excluded. Queue and travel figures are estimates; customers can review the branch and choose whether to switch.
+
 ### Live API and demo mode
 
 The frontend first sends requests to the Express API (`VITE_API_URL`, defaulting to `http://127.0.0.1:5000/api`). A network connection failure falls back to the in-browser mock database. The **Demo / Offline Mode** banner identifies that fallback and offers a reset action. HTTP error responses remain errors and are not silently replaced by mock data. History pages can be switched between pagination and a client-side infinite-scroll view; the current history endpoints return the full result set in one request, so the infinite-scroll example progressively reveals already-loaded rows rather than fetching server pages.

@@ -280,7 +280,7 @@ export function calculateTravelEstimates(distanceKm, realSpeedKmh = null, navMod
 export function getUserCoordinates() {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
-      resolve(DEFAULT_COORDINATES);
+      resolve({ ...DEFAULT_COORDINATES, isFallback: true });
       return;
     }
 
@@ -288,11 +288,12 @@ export function getUserCoordinates() {
       (position) => {
         resolve({
           lat: position.coords.latitude,
-          lng: position.coords.longitude
+          lng: position.coords.longitude,
+          isFallback: false
         });
       },
       () => {
-        resolve(DEFAULT_COORDINATES);
+        resolve({ ...DEFAULT_COORDINATES, isFallback: true });
       },
       { timeout: 5000, enableHighAccuracy: true }
     );

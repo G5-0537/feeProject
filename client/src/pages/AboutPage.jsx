@@ -20,7 +20,7 @@ const techStack = [
 
 const features = [
   'Live queue tracking with 5-second polling',
-  'Smart branch recommendation engine (geo-distance + wait time)',
+  'Same-service branch recommendations compare estimated queue and travel time',
   'QR code digital token passes',
   'In-browser mock database with 1000+ lines of realistic seed data',
   'Dark/light theme with localStorage persistence',
