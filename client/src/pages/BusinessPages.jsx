@@ -266,12 +266,21 @@ export function BusinessDetails() {
       params.set('lat', String(userCoords.lat));
       params.set('lng', String(userCoords.lng));
     }
-    apiRequest(`/businesses/${businessId}/recommendation?${params}`, { signal: controller.signal })
-      .then((data) => setRecommendation(data.recommendation || null))
-      .catch((error) => {
+    async function refreshRecommendation() {
+      try {
+        const data = await apiRequest(`/businesses/${businessId}/recommendation?${params}`, { signal: controller.signal });
+        setRecommendation(data.recommendation || null);
+      } catch (error) {
         if (error.name !== 'AbortError') setRecommendation(null);
-      });
-    return () => controller.abort();
+      }
+    }
+
+    refreshRecommendation();
+    const interval = setInterval(refreshRecommendation, 10000);
+    return () => {
+      clearInterval(interval);
+      controller.abort();
+    };
   }, [businessId, selectedService, userCoords]);
 
   async function bookAppointment(serviceId = selectedService, targetBizId = businessId) {
