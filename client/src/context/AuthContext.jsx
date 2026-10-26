@@ -1,10 +1,16 @@
 import { createContext, useContext, useMemo, useState } from 'react';
+import { formatBranchName } from '../utils/format.js';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [customer, setCustomer] = useState(() => JSON.parse(localStorage.getItem('queless_customer') || 'null'));
-  const [staff, setStaff] = useState(() => JSON.parse(localStorage.getItem('queless_staff') || 'null'));
+  const [staff, setStaff] = useState(() => {
+    const storedStaff = JSON.parse(localStorage.getItem('queless_staff') || 'null');
+    return storedStaff?.business_name
+      ? { ...storedStaff, business_name: formatBranchName(storedStaff.business_name) }
+      : storedStaff;
+  });
 
   function saveCustomer(data) {
     localStorage.setItem('queless_customer_token', data.token);
@@ -13,9 +19,13 @@ export function AuthProvider({ children }) {
   }
 
   function saveStaff(data) {
+    const normalizedStaff = {
+      ...data.staff,
+      business_name: formatBranchName(data.staff?.business_name || ''),
+    };
     localStorage.setItem('queless_staff_token', data.token);
-    localStorage.setItem('queless_staff', JSON.stringify(data.staff));
-    setStaff(data.staff);
+    localStorage.setItem('queless_staff', JSON.stringify(normalizedStaff));
+    setStaff(normalizedStaff);
   }
 
   function logoutCustomer() {

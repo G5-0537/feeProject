@@ -3138,3 +3138,423 @@ html, body {
   margin: 0;
   font-size: 0.78rem;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NEW ADDITIONS — Phase 1-6 Implementation
+   FormField, Toast, Modal, Tabs, Pagination, Skeleton, About, 404, Charts
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── FormField (Syllabus 55-60) ─────────────────────────────────────────── */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+.form-field-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.form-required { color: var(--danger); margin-left: 2px; }
+
+.form-field-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.94rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-field-input:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent);
+}
+.has-error .form-field-input {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 14%, transparent);
+}
+.form-field-error {
+  font-size: 0.82rem;
+  color: var(--danger);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.form-field-hint {
+  font-size: 0.80rem;
+  color: var(--muted);
+}
+.service-add-form { display: flex; flex-direction: column; }
+
+/* ── Toast Notification System (Syllabus 61-66) ──────────────────────────── */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: all;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 280px;
+  max-width: 400px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(60px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+.toast-success { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.toast-error   { border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); background: color-mix(in srgb, var(--danger) 8%, var(--surface)); }
+.toast-info    { border-color: color-mix(in srgb, var(--brand) 35%, var(--line)); background: color-mix(in srgb, var(--brand) 8%, var(--surface)); }
+.toast-warning { border-color: color-mix(in srgb, #f59e0b 40%, var(--line)); background: color-mix(in srgb, #f59e0b 8%, var(--surface)); }
+
+.toast-icon { flex-shrink: 0; margin-top: 1px; }
+.toast-success .toast-icon { color: var(--accent); }
+.toast-error   .toast-icon { color: var(--danger); }
+.toast-info    .toast-icon { color: var(--brand); }
+.toast-warning .toast-icon { color: #f59e0b; }
+
+.toast-message { flex: 1; }
+.toast-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px; height: 26px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.toast-close:hover { background: var(--surface-2); color: var(--text); }
+
+/* ── Modal (Syllabus 61-66) — replaces browser confirm() ────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8888;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.modal-box {
+  width: 100%;
+  max-width: 440px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+  padding: 28px;
+  animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.modal-icon { display: flex; color: var(--muted); }
+.modal-icon.danger { color: var(--danger); }
+.modal-icon.info   { color: var(--brand); }
+.modal-title { flex: 1; font-size: 1.1rem; font-weight: 800; margin: 0; }
+.modal-close-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border: 0;
+  background: transparent; color: var(--muted);
+  cursor: pointer; border-radius: 6px; transition: background 0.15s;
+}
+.modal-close-btn:hover { background: var(--surface-2); color: var(--text); }
+.modal-message { color: var(--muted); font-size: 0.94rem; line-height: 1.55; margin: 0 0 22px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.button.danger {
+  background: linear-gradient(135deg, var(--danger), color-mix(in srgb, var(--danger) 80%, #000));
+  color: #fff;
+}
+
+/* ── Tabs (Syllabus 61-66) ───────────────────────────────────────────────── */
+.tabs-strip {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--line);
+  margin-bottom: 0;
+  padding-bottom: 0;
+  overflow-x: auto;
+}
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+  white-space: nowrap;
+  transition: color 0.18s, background 0.18s, border-color 0.18s;
+}
+.tab-btn:hover { color: var(--text); background: var(--surface-2); }
+.tab-btn.active {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 7%, transparent);
+}
+.tab-icon { display: flex; }
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.tab-content {
+  margin-top: 0;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+}
+
+/* ── Pagination (Syllabus 67-72) ─────────────────────────────────────────── */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+}
+.pagination-info { font-size: 0.85rem; color: var(--muted); }
+.pagination-controls { display: flex; align-items: center; gap: 10px; }
+.pagination-page-indicator { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+.table-count { font-size: 0.82rem; color: var(--muted); }
+
+/* ── Table Controls — Search + Filter + Sortable Headers (Syllabus 61-66) ── */
+.table-search-input {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  width: 240px;
+  transition: border-color 0.2s;
+}
+.table-search-input:focus {
+  outline: none;
+  border-color: var(--brand);
+}
+.table-filter-select {
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+.sortable-th {
+  user-select: none;
+  white-space: nowrap;
+}
+.sortable-th:hover { color: var(--brand); }
+.sortable-th svg { display: inline; vertical-align: middle; margin-left: 4px; }
+
+/* ── Skeleton Loading (Syllabus 67-72) ───────────────────────────────────── */
+.skeleton-block {
+  display: inline-block;
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, color-mix(in srgb, var(--surface-2) 60%, var(--line)) 50%, var(--surface-2) 75%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+.skeleton-row td { padding: 12px 10px; }
+.skeleton-card { padding: 12px 0; display: flex; flex-direction: column; gap: 8px; }
+
+/* ── 404 Not Found Page (Syllabus 43-48) ─────────────────────────────────── */
+.not-found-page {
+  min-height: calc(100vh - 76px);
+  display: grid;
+  place-items: center;
+  padding: 60px 20px;
+  background: var(--bg);
+}
+.not-found-box {
+  text-align: center;
+  max-width: 500px;
+}
+.not-found-code {
+  display: block;
+  font-size: 7rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--brand);
+  letter-spacing: -4px;
+  opacity: 0.3;
+}
+.not-found-title {
+  font-size: 2rem;
+  margin: 8px 0 12px;
+}
+.not-found-message {
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+.not-found-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* ── About Page (Syllabus 43-48) ─────────────────────────────────────────── */
+.about-page { max-width: 900px; margin: 0 auto; }
+.about-back-row { margin-bottom: 24px; }
+.about-hero {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 32px;
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.about-title { font-size: 2.5rem; font-weight: 900; margin: 0 0 4px; }
+.about-subtitle { color: var(--muted); margin: 0 0 12px; font-size: 1.05rem; }
+.about-meta-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.about-chip {
+  display: inline-flex; padding: 4px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--brand); font-size: 0.78rem; font-weight: 800;
+  border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
+}
+.about-desc {
+  color: var(--muted); line-height: 1.7; font-size: 1rem;
+  margin-bottom: 32px;
+}
+.about-section { margin-bottom: 36px; }
+.about-section h2 { font-size: 1.35rem; margin-bottom: 16px; }
+
+.syllabus-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.syllabus-card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: 16px;
+}
+.syllabus-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.syllabus-topics-badge {
+  padding: 3px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--brand-2) 14%, transparent);
+  color: var(--brand-2); font-size: 0.75rem; font-weight: 800;
+  border: 1px solid color-mix(in srgb, var(--brand-2) 28%, transparent);
+  white-space: nowrap;
+}
+.syllabus-card p { color: var(--muted); font-size: 0.85rem; line-height: 1.5; margin: 0; }
+
+.tech-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.tech-card {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; padding: 14px;
+}
+.tech-icon { color: var(--brand); flex-shrink: 0; margin-top: 2px; }
+.tech-card strong { display: block; margin-bottom: 4px; }
+.tech-card p { color: var(--muted); font-size: 0.84rem; line-height: 1.4; margin: 0; }
+
+.features-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px; list-style: none; padding: 0; margin: 0;
+}
+.features-list li {
+  padding: 10px 14px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 8px; font-size: 0.9rem; color: var(--text);
+}
+.features-list li::before { content: '✓ '; color: var(--brand); font-weight: 800; }
+
+/* ── Chart Panel (Recharts — Bonus) ──────────────────────────────────────── */
+.chart-panel { padding: 20px; }
+.chart-panel h2 { margin-top: 0; margin-bottom: 16px; }
+
+/* ── Print Token (Bonus) ─────────────────────────────────────────────────── */
+@media print {
+  .sidebar,
+  .dashboard-header,
+  .tracking-actions-bar,
+  .demo-banner,
+  .print-hide,
+  .stats-grid,
+  .smart-rec-card { display: none !important; }
+  .dashboard-main { padding: 0 !important; }
+  .qr-pass-panel, .tracking-board { display: block !important; page-break-inside: avoid; }
+  body { background: white !important; color: black !important; }
+}
+
+/* ── Theme transition smoothing ──────────────────────────────────────────── */
+*, *::before, *::after {
+  transition: background-color 0.2s ease, color 0.15s ease, border-color 0.2s ease;
+}
+/* Don't transition layout/transform properties */
+.button, .toast, .modal-box, .tab-btn { transition: none; }
+.button { transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease; }
+
+/* ── Responsive — Mobile sidebar already in existing CSS ─────────────────── */
+@media (max-width: 760px) {
+  .toast-container { bottom: 16px; right: 16px; left: 16px; }
+  .toast { min-width: unset; }
+  .table-search-input { width: 100%; }
+  .pagination-bar { flex-direction: column; align-items: flex-start; }
+  .about-hero { flex-direction: column; }
+  .tech-grid, .syllabus-grid, .features-list { grid-template-columns: 1fr; }
+}

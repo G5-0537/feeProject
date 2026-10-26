@@ -108,8 +108,9 @@ CREATE TABLE queue_entries (
   completed_at TIMESTAMP NULL,
   status ENUM('Waiting','Approaching','Now Serving','Completed','Skipped','Cancelled') NOT NULL DEFAULT 'Waiting',
   CONSTRAINT fk_entries_queue FOREIGN KEY (queue_id) REFERENCES queues(queue_id) ON DELETE CASCADE,
-  CONSTRAINT fk_entries_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL,
-  CONSTRAINT fk_entries_appointment FOREIGN KEY (appointment_id) REFERENCES appointments(appointment_id) ON DELETE SET NULL,
+  -- RESTRICT avoids MySQL rejecting these columns in chk_entry_owner and keeps queue ownership intact.
+  CONSTRAINT fk_entries_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE RESTRICT,
+  CONSTRAINT fk_entries_appointment FOREIGN KEY (appointment_id) REFERENCES appointments(appointment_id) ON DELETE RESTRICT,
   CONSTRAINT uq_queue_token UNIQUE (queue_id, token_number),
   CONSTRAINT chk_entry_owner CHECK (
     user_id IS NOT NULL OR appointment_id IS NOT NULL OR walk_in_name IS NOT NULL

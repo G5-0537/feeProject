@@ -74,6 +74,7 @@ export default function PublicNav() {
         <button type="button" className="nav-button" onClick={handleHowItWorks}>
           How It Works
         </button>
+        <NavLink to="/about">About</NavLink>
         
         {customer && (
           <>

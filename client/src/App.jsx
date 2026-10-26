@@ -3,6 +3,8 @@ import ErrorBoundary from './components/ErrorBoundary.jsx';
 import DemoBanner from './components/DemoBanner.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import LandingPage from './pages/LandingPage.jsx';
+import AboutPage from './pages/AboutPage.jsx';
+import NotFoundPage from './pages/NotFoundPage.jsx';
 import { CustomerLogin, CustomerSignup, StaffLogin, StaffSignup, ForgotPassword } from './pages/AuthPages.jsx';
 import { BusinessDetails, BusinessSearch } from './pages/BusinessPages.jsx';
 import { CustomerDashboard, CustomerHistory, NotificationsPage, ProfilePage, QueueTracking, SettingsPage } from './pages/CustomerPages.jsx';
@@ -16,6 +18,7 @@ export default function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/login" element={<CustomerLogin />} />
         <Route path="/signup" element={<CustomerSignup />} />
         <Route path="/staff/login" element={<StaffLogin />} />
@@ -27,6 +30,8 @@ export default function App() {
 
         {/* Customer Protected Routes */}
         <Route path="/customer/dashboard" element={<ProtectedRoute role="customer"><CustomerDashboard /></ProtectedRoute>} />
+        <Route path="/customer/businesses" element={<ProtectedRoute role="customer"><BusinessSearch /></ProtectedRoute>} />
+        <Route path="/customer/businesses/:businessId" element={<ProtectedRoute role="customer"><BusinessDetails /></ProtectedRoute>} />
         <Route path="/customer/queue/:entryId" element={<ProtectedRoute role="customer"><QueueTracking /></ProtectedRoute>} />
         <Route path="/customer/appointments" element={<ProtectedRoute role="customer"><CustomerHistory type="appointments" /></ProtectedRoute>} />
         <Route path="/customer/queues" element={<ProtectedRoute role="customer"><CustomerHistory type="queues" /></ProtectedRoute>} />
@@ -44,7 +49,8 @@ export default function App() {
         <Route path="/staff/statistics" element={<ProtectedRoute role="staff"><StaffStatistics /></ProtectedRoute>} />
         <Route path="/staff/history" element={<ProtectedRoute role="staff"><StaffHistory /></ProtectedRoute>} />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* 404 — replaces silent redirect to "/" */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </ErrorBoundary>
   );

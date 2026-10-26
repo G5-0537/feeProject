@@ -16,7 +16,7 @@ const INITIAL_SEED_DATA = {
       business_id: 1,
       brand_name: 'Apex Health Clinic',
       branch_name: 'Main Branch',
-      name: 'Apex Health Clinic – Main Branch',
+      name: 'Apex Health Clinic Main Branch',
       type: 'Clinic',
       address: '104 Medical Plaza, Central Avenue',
       contact: '+1 (555) 234-8900',
@@ -34,7 +34,7 @@ const INITIAL_SEED_DATA = {
       business_id: 10,
       brand_name: 'Apex Health Clinic',
       branch_name: 'Sector 17 Branch',
-      name: 'Apex Health Clinic – Sector 17',
+      name: 'Apex Health Clinic Sector 17',
       type: 'Clinic',
       address: 'Shop 42, Sector 17 Commercial Complex',
       contact: '+1 (555) 234-8917',
@@ -52,7 +52,7 @@ const INITIAL_SEED_DATA = {
       business_id: 11,
       brand_name: 'Apex Health Clinic',
       branch_name: 'Sector 22 Branch',
-      name: 'Apex Health Clinic – Sector 22',
+      name: 'Apex Health Clinic Sector 22',
       type: 'Clinic',
       address: 'Plot 88, Sector 22 Market Circle',
       contact: '+1 (555) 234-8922',
@@ -72,7 +72,7 @@ const INITIAL_SEED_DATA = {
       business_id: 2,
       brand_name: 'Metropolitan Trust Bank',
       branch_name: 'Financial District Branch',
-      name: 'Metropolitan Trust Bank – Financial District',
+      name: 'Metropolitan Trust Bank Financial District',
       type: 'Bank',
       address: '500 Financial District, Suite 12',
       contact: '+1 (555) 890-1234',
@@ -90,7 +90,7 @@ const INITIAL_SEED_DATA = {
       business_id: 20,
       brand_name: 'Metropolitan Trust Bank',
       branch_name: 'Tech Park Branch',
-      name: 'Metropolitan Trust Bank – Tech Park',
+      name: 'Metropolitan Trust Bank Tech Park',
       type: 'Bank',
       address: 'Tower B, Silicon Tech Park',
       contact: '+1 (555) 890-5678',
@@ -110,7 +110,7 @@ const INITIAL_SEED_DATA = {
       business_id: 3,
       brand_name: 'Luxe Salon & Wellness',
       branch_name: 'Fashion Boulevard',
-      name: 'Luxe Salon & Wellness – Fashion Blvd',
+      name: 'Luxe Salon & Wellness Fashion Blvd',
       type: 'Salon',
       address: '77 Fashion Boulevard',
       contact: '+1 (555) 432-6789',
@@ -128,7 +128,7 @@ const INITIAL_SEED_DATA = {
       business_id: 30,
       brand_name: 'Luxe Salon & Wellness',
       branch_name: 'Galleria Mall',
-      name: 'Luxe Salon & Wellness – Galleria Mall',
+      name: 'Luxe Salon & Wellness Galleria Mall',
       type: 'Salon',
       address: '2nd Floor, Galleria Luxury Mall',
       contact: '+1 (555) 432-1100',
@@ -148,7 +148,7 @@ const INITIAL_SEED_DATA = {
       business_id: 4,
       brand_name: 'St. Jude General Hospital',
       branch_name: 'Emergency Way',
-      name: 'St. Jude General Hospital – Emergency Way',
+      name: 'St. Jude General Hospital Emergency Way',
       type: 'Hospital',
       address: '1200 Emergency Way',
       contact: '+1 (555) 911-0000',
@@ -166,7 +166,7 @@ const INITIAL_SEED_DATA = {
       business_id: 40,
       brand_name: 'St. Jude General Hospital',
       branch_name: 'North Annex',
-      name: 'St. Jude General Hospital – North Annex',
+      name: 'St. Jude General Hospital North Annex',
       type: 'Hospital',
       address: '450 North Medical Campus',
       contact: '+1 (555) 911-4400',
@@ -228,7 +228,7 @@ const INITIAL_SEED_DATA = {
       booking_type: 'queue',
       appointment_time: null,
       joined_at: new Date(Date.now() - 25 * 60000).toISOString(),
-      business_name: 'Apex Health Clinic – Main Branch',
+      business_name: 'Apex Health Clinic Main Branch',
       service_name: 'General Physician Consultation',
     },
     {
@@ -244,7 +244,7 @@ const INITIAL_SEED_DATA = {
       booking_type: 'queue',
       appointment_time: null,
       joined_at: new Date(Date.now() - 40 * 60000).toISOString(),
-      business_name: 'Apex Health Clinic – Main Branch',
+      business_name: 'Apex Health Clinic Main Branch',
       service_name: 'General Physician Consultation',
     },
     {
@@ -260,7 +260,7 @@ const INITIAL_SEED_DATA = {
       booking_type: 'walk-in',
       appointment_time: null,
       joined_at: new Date(Date.now() - 30 * 60000).toISOString(),
-      business_name: 'Apex Health Clinic – Main Branch',
+      business_name: 'Apex Health Clinic Main Branch',
       service_name: 'General Physician Consultation',
     },
     {
@@ -276,7 +276,7 @@ const INITIAL_SEED_DATA = {
       booking_type: 'walk-in',
       appointment_time: null,
       joined_at: new Date(Date.now() - 20 * 60000).toISOString(),
-      business_name: 'Apex Health Clinic – Main Branch',
+      business_name: 'Apex Health Clinic Main Branch',
       service_name: 'General Physician Consultation',
     }
   ],
@@ -289,7 +289,7 @@ const INITIAL_SEED_DATA = {
       user_id: 1,
       customer_name: 'John Doe',
       phone: '+1 555-0199',
-      business_name: 'Apex Health Clinic – Main Branch',
+      business_name: 'Apex Health Clinic Main Branch',
       service_name: 'General Physician Consultation',
       appointment_date: new Date().toISOString().slice(0, 10),
       appointment_time: '14:30',
@@ -301,7 +301,7 @@ const INITIAL_SEED_DATA = {
     {
       notification_id: 1,
       user_id: 1,
-      message: 'Apex Health Clinic – Main Branch is currently busy (~50 min wait). Sector 17 branch has only 3 people waiting!',
+      message: 'Apex Health Clinic Main Branch is currently busy (~50 min wait). Sector 17 branch has only 3 people waiting!',
       type: 'System',
       created_at: new Date(Date.now() - 2 * 60000).toISOString()
     },
@@ -328,7 +328,7 @@ const INITIAL_SEED_DATA = {
       booking_type: 'queue',
       completed_at: new Date(Date.now() - 15 * 60000).toISOString(),
       service_name: 'General Physician Consultation',
-      business_name: 'Apex Health Clinic – Main Branch',
+      business_name: 'Apex Health Clinic Main Branch',
     },
     {
       entry_id: 98,
@@ -343,7 +343,7 @@ const INITIAL_SEED_DATA = {
       booking_type: 'appointment',
       completed_at: new Date(Date.now() - 35 * 60000).toISOString(),
       service_name: 'General Physician Consultation',
-      business_name: 'Apex Health Clinic – Main Branch',
+      business_name: 'Apex Health Clinic Main Branch',
     },
     {
       entry_id: 97,
@@ -358,7 +358,7 @@ const INITIAL_SEED_DATA = {
       booking_type: 'queue',
       completed_at: new Date(Date.now() - 50 * 60000).toISOString(),
       service_name: 'General Physician Consultation',
-      business_name: 'Apex Health Clinic – Main Branch',
+      business_name: 'Apex Health Clinic Main Branch',
     }
   ],
 
@@ -374,7 +374,7 @@ const INITIAL_SEED_DATA = {
     business_id: 1,
     brand_name: 'Apex Health Clinic',
     branch_name: 'Main Branch',
-    business_name: 'Apex Health Clinic – Main Branch',
+    business_name: 'Apex Health Clinic Main Branch',
     business_type: 'Clinic',
     name: 'Clinic Desk Staff',
     email: 'clinic_staff',
@@ -390,6 +390,7 @@ export function isMockModeActive() {
 
 export function setMockModeActive(active) {
   isMockMode = active;
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('queless:mock-mode-change'));
 }
 
 export function getMockDB() {
@@ -589,7 +590,7 @@ export async function handleMockRequest(path, options = {}) {
       business_id: newBizId,
       brand_name: body.business_name || 'My Business',
       branch_name: 'Main Branch',
-      name: `${body.business_name || 'My Business'} – Main Branch`,
+      name: `${body.business_name || 'My Business'} Main Branch`,
       type: body.business_type || 'Clinic',
       address: '101 Business Hub, Downtown',
       contact: body.phone || '+1 555-0199',
