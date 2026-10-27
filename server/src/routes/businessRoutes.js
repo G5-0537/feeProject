@@ -44,7 +44,8 @@ router.get('/:businessId/recommendation', async (req, res, next) => {
   try {
     const userLat = req.query.lat ? Number(req.query.lat) : null;
     const userLng = req.query.lng ? Number(req.query.lng) : null;
-    const recommendation = await getSmartQueueRecommendation(req.params.businessId, userLat, userLng);
+    const serviceId = req.query.service_id ? Number(req.query.service_id) : null;
+    const recommendation = await getSmartQueueRecommendation(req.params.businessId, userLat, userLng, serviceId);
     res.json({ recommendation });
   } catch (error) {
     next(error);
@@ -117,7 +118,7 @@ router.get('/:businessId', async (req, res, next) => {
 
     const userLat = req.query.lat ? Number(req.query.lat) : null;
     const userLng = req.query.lng ? Number(req.query.lng) : null;
-    const recommendation = await getSmartQueueRecommendation(req.params.businessId, userLat, userLng).catch(() => null);
+    const recommendation = await getSmartQueueRecommendation(req.params.businessId, userLat, userLng, services[0]?.service_id || null).catch(() => null);
 
     res.json({ business: businessRows[0], services, recommendation });
   } catch (error) {

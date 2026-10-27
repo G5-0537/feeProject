@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Database, RotateCcw, X, Server, CheckCircle2 } from 'lucide-react';
+import { Database, RotateCcw, X, Server } from 'lucide-react';
 import { isMockModeActive, resetMockDB } from '../services/mockData.js';
+import Modal from './Modal.jsx';
 
 /**
  * DemoBanner Component
@@ -13,6 +14,7 @@ export default function DemoBanner() {
     message: ''
   });
   const [dismissed, setDismissed] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -43,60 +45,84 @@ export default function DemoBanner() {
         });
       });
 
-    return () => { mounted = false; };
+    const check = () => {
+      if (isMockModeActive()) {
+        setDbStatus({ mode: 'mock', message: 'In-Browser Reactive Database (Offline Demo Engine Active)' });
+      }
+    };
+    window.addEventListener('queless:mock-mode-change', check);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener('queless:mock-mode-change', check);
+    };
   }, []);
 
   if (dismissed || dbStatus.mode === 'detecting') return null;
 
   function handleReset() {
-    if (confirm('Reset demo database to default seed state?')) {
-      resetMockDB();
-      window.location.reload();
-    }
+    resetMockDB();
+    setConfirmReset(false);
+    window.location.reload();
   }
 
   const isLiveMySQL = dbStatus.mode === 'mysql';
 
   return (
-    <div className={`demo-banner ${isLiveMySQL ? 'banner-mysql-live' : 'banner-mock-active'}`} role="status">
-      <div className="demo-banner-content">
-        <span className="demo-badge">
-          {isLiveMySQL ? (
-            <>
-              <Server size={13} /> Live MySQL Mode
-            </>
-          ) : (
-            <>
-              <Database size={13} /> In-Browser Mock DB
-            </>
-          )}
-        </span>
-        <span className="demo-text">
-          {isLiveMySQL ? (
-            <>
-              Connected to <strong>MySQL 8</strong> persistent engine. Queries and appointments commit directly to the relational database.
-            </>
-          ) : (
-            <>
-              Running <strong>Reactive In-Browser Storage</strong> (Offline / GitHub Pages Fallback). Customer: <code>john@example.com</code> &bull; Staff: <code>clinic_staff</code>
-            </>
-          )}
-        </span>
-        <div className="demo-actions">
-          {!isLiveMySQL && (
-            <button className="demo-reset-btn" onClick={handleReset} title="Reset in-browser storage to initial seed data">
-              <RotateCcw size={12} /> Reset Data
+    <>
+      <Modal
+        isOpen={confirmReset}
+        title="Reset demo data?"
+        message="This restores the in-browser demo database to its original seed data."
+        confirmText="Reset Data"
+        danger
+        onConfirm={handleReset}
+        onCancel={() => setConfirmReset(false)}
+      />
+      <div className={`demo-banner ${isLiveMySQL ? 'banner-mysql-live' : 'banner-mock-active'}`} role="status">
+        <div className="demo-banner-content">
+          <span className="demo-badge">
+            {isLiveMySQL ? (
+              <>
+                <Server size={13} /> Live MySQL Mode
+              </>
+            ) : (
+              <>
+                <Database size={13} /> In-Browser Mock DB
+              </>
+            )}
+          </span>
+          <span className="demo-text">
+            {isLiveMySQL ? (
+              <>
+                Connected to <strong>MySQL 8</strong> persistent engine. Queries and appointments commit directly to the relational database.
+              </>
+            ) : (
+              <>
+                Running <strong>Reactive In-Browser Storage</strong> (Offline / GitHub Pages Fallback). Customer: <code>john@example.com</code> &bull; Staff: <code>clinic_staff</code>
+              </>
+            )}
+          </span>
+          <div className="demo-actions">
+            {!isLiveMySQL && (
+              <button
+                className="demo-reset-btn"
+                onClick={() => setConfirmReset(true)}
+                title="Reset in-browser storage to initial seed data"
+              >
+                <RotateCcw size={12} /> Reset Data
+              </button>
+            )}
+            <button
+              className="demo-close-btn"
+              onClick={() => setDismissed(true)}
+              aria-label="Dismiss status banner"
+            >
+              <X size={14} />
             </button>
-          )}
-          <button 
-            className="demo-close-btn" 
-            onClick={() => setDismissed(true)} 
-            aria-label="Dismiss status banner"
-          >
-            <X size={14} />
-          </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

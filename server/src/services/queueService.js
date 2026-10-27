@@ -1,5 +1,6 @@
 import { pool } from '../config/db.js';
 import { formatWaitRange, queueMessage } from './waitTimeService.js';
+import { getSmartQueueRecommendation } from './recommendationService.js';
 
 export async function getOrCreateQueue(connection, businessId, serviceId, queueDate) {
   const [existing] = await connection.execute(
@@ -64,12 +65,19 @@ export async function buildQueueSnapshot(entryId) {
   if (!rows.length) return null;
   const item = rows[0];
   const estimatedMinutes = Number(item.people_ahead) * Number(item.average_minutes);
+  const recommendation = await getSmartQueueRecommendation(
+    item.business_id,
+    null,
+    null,
+    item.service_id
+  ).catch(() => null);
   return {
     ...item,
     average_minutes: Number(item.average_minutes),
     people_ahead: Number(item.people_ahead),
     estimated_minutes: Math.round(estimatedMinutes),
     estimated_wait: formatWaitRange(estimatedMinutes),
-    position_message: queueMessage(Number(item.people_ahead))
+    position_message: queueMessage(Number(item.people_ahead)),
+    recommendation
   };
 }

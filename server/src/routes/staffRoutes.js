@@ -26,7 +26,13 @@ router.get('/dashboard', async (req, res, next) => {
        ORDER BY service_name, token_number`,
       [businessId]
     );
-    res.json({ summary: summary[0], queue });
+    const [branchRows] = await pool.execute(
+      `SELECT business_id, name, branch_name, is_paused
+       FROM businesses
+       WHERE business_id = ?`,
+      [businessId]
+    );
+    res.json({ summary: summary[0], queue, branch: branchRows[0] || null });
   } catch (error) {
     next(error);
   }

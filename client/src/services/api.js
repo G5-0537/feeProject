@@ -15,6 +15,7 @@ export async function apiRequest(path, options = {}) {
   try {
     const response = await fetch(`${API_BASE}${path}`, {
       ...options,
+      signal: options.signal,
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -30,6 +31,7 @@ export async function apiRequest(path, options = {}) {
     }
     return data;
   } catch (err) {
+    if (err?.name === 'AbortError') throw err;
     // If it is an explicit ApiError with a status from an active backend, throw it
     if (err instanceof ApiError) {
       throw err;

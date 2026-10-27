@@ -2,6 +2,13 @@ export function statusClass(status = '') {
   return status.toLowerCase().replaceAll(' ', '-');
 }
 
+export function formatBranchName(value = '') {
+  return String(value)
+    .replace(/\s*(?:–|—|â€“|â€”|ÔÇô|Ã¢â‚¬â€œ)\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function shortTime(value) {
   if (!value) return '--';
   return String(value).slice(0, 5);

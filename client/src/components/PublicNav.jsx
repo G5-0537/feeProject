@@ -76,6 +76,7 @@ export default function PublicNav() {
         <button type="button" className="nav-button" onClick={handleHowItWorks}>
           How It Works
         </button>
+        <NavLink to="/about">About</NavLink>
         <NavLink to="/portfolio" className="portfolio-nav-pill-link">
           <FolderGit2 size={14} /> Portfolio
         </NavLink>

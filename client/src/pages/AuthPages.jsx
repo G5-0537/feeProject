@@ -106,6 +106,19 @@ function AuthForm({ mode, eyebrow, title, subtitle, buttonText }) {
   const isSignup = isCustomerSignup || isStaffSignup;
   const isStaff = mode === 'staff-login' || mode === 'staff-signup';
   const strength = getPasswordStrength(form.password);
+  const { errors: fieldErrors, validate, clearField } = useFormValidation({
+    email: { required: true, label: 'Email', pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email address.' },
+    password: { required: true, label: 'Password', minLength: 6 },
+    name: { required: isSignup, label: 'Full Name', minLength: 2 },
+    phone: { required: isSignup, label: 'Phone Number', pattern: /^\+?[\d\s\-().]{7,}$/, message: 'Enter a valid phone number.' },
+    confirmPassword: { required: isSignup, label: 'Confirm Password', custom: (value, values) => value !== values.password ? 'Passwords do not match.' : null },
+    business_name: { required: isStaffSignup, label: 'Business Name', minLength: 2 },
+  });
+
+  function updateField(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+    clearField(field);
+  }
 
   async function submit(event) {
     event.preventDefault();
@@ -222,10 +235,11 @@ function AuthForm({ mode, eyebrow, title, subtitle, buttonText }) {
                       className="auth-input"
                       placeholder="e.g. Apex Health Clinic"
                       value={form.business_name}
-                      onChange={(e) => setForm({ ...form, business_name: e.target.value })}
+                      onChange={(e) => updateField('business_name', e.target.value)}
                       required
                       autoFocus
                     />
+                    {fieldErrors.business_name && <span className="form-field-error" role="alert">{fieldErrors.business_name}</span>}
                   </div>
 
                   <div className="auth-field-group">
@@ -257,10 +271,11 @@ function AuthForm({ mode, eyebrow, title, subtitle, buttonText }) {
                       className="auth-input"
                       placeholder="Jane Doe"
                       value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      onChange={(e) => updateField('name', e.target.value)}
                       required
                       autoComplete="name"
                     />
+                    {fieldErrors.name && <span className="form-field-error" role="alert">{fieldErrors.name}</span>}
                   </div>
 
                   <div className="auth-field-group">
@@ -271,10 +286,11 @@ function AuthForm({ mode, eyebrow, title, subtitle, buttonText }) {
                       className="auth-input"
                       placeholder="+1 (555) 000-0000"
                       value={form.phone}
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      onChange={(e) => updateField('phone', e.target.value)}
                       required
                       autoComplete="tel"
                     />
+                    {fieldErrors.phone && <span className="form-field-error" role="alert">{fieldErrors.phone}</span>}
                   </div>
                 </>
               )}
@@ -290,10 +306,11 @@ function AuthForm({ mode, eyebrow, title, subtitle, buttonText }) {
                   className="auth-input"
                   placeholder="name@example.com"
                   value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  onChange={(e) => updateField('email', e.target.value)}
                   required
                   autoComplete="email"
                 />
+                {fieldErrors.email && <span className="form-field-error" role="alert">{fieldErrors.email}</span>}
               </div>
 
               {/* Password Field */}
@@ -306,7 +323,7 @@ function AuthForm({ mode, eyebrow, title, subtitle, buttonText }) {
                     className="auth-input password-input"
                     placeholder="Enter your password"
                     value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    onChange={(e) => updateField('password', e.target.value)}
                     required
                     autoComplete={isSignup ? 'new-password' : 'current-password'}
                   />
@@ -319,6 +336,7 @@ function AuthForm({ mode, eyebrow, title, subtitle, buttonText }) {
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+                {fieldErrors.password && <span className="form-field-error" role="alert">{fieldErrors.password}</span>}
               </div>
 
               {/* Forgot password link for logins with proper spacing */}
@@ -345,7 +363,7 @@ function AuthForm({ mode, eyebrow, title, subtitle, buttonText }) {
                       className="auth-input password-input"
                       placeholder="Repeat your password"
                       value={form.confirmPassword}
-                      onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                      onChange={(e) => updateField('confirmPassword', e.target.value)}
                       required
                       autoComplete="new-password"
                     />
@@ -358,6 +376,7 @@ function AuthForm({ mode, eyebrow, title, subtitle, buttonText }) {
                       {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
+                  {fieldErrors.confirmPassword && <span className="form-field-error" role="alert">{fieldErrors.confirmPassword}</span>}
                 </div>
               )}
 
@@ -473,6 +492,9 @@ function ForgotPasswordCard({ onBack, isStaff: propIsStaff, backMode }) {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const { errors: validationErrors, validate, clearField } = useFormValidation({
+    email: { required: true, label: 'Email', pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Enter a valid email address.' },
+  });
 
   const handleBack = () => {
     if (onBack) {
@@ -567,10 +589,13 @@ function ForgotPasswordCard({ onBack, isStaff: propIsStaff, backMode }) {
                   className="auth-input"
                   placeholder="name@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); clearField('email'); }}
                   required
                   autoFocus
+                  aria-invalid={!!validationErrors.email}
+                  aria-describedby={validationErrors.email ? 'reset-email-error' : undefined}
                 />
+                {validationErrors.email && <span id="reset-email-error" className="form-field-error" role="alert">{validationErrors.email}</span>}
               </div>
 
               <div className="demo-flow-info-box subtle">

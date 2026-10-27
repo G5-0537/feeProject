@@ -350,7 +350,7 @@ export function getUserCoordinates() {
 
   return new Promise((resolve) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      const fallback = cachedCoords || { ...DEFAULT_COORDINATES, isLive: false };
+      const fallback = cachedCoords || { ...DEFAULT_COORDINATES, isLive: false, isFallback: true };
       resolve(fallback);
       return;
     }
@@ -361,13 +361,14 @@ export function getUserCoordinates() {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
           isLive: true,
+          isFallback: false,
           accuracy: Math.round(position.coords.accuracy || 10)
         };
         setSharedUserCoordinates(liveCoords);
         resolve(liveCoords);
       },
       () => {
-        const fallback = cachedCoords || { ...DEFAULT_COORDINATES, isLive: false };
+        const fallback = cachedCoords || { ...DEFAULT_COORDINATES, isLive: false, isFallback: true };
         resolve(fallback);
       },
       { timeout: 8000, enableHighAccuracy: true }

@@ -5,6 +5,7 @@ import ProtectedRoute, { GuestRoute } from './components/ProtectedRoute.jsx';
 import SyllabusEvaluationModal from './components/SyllabusEvaluationModal.jsx';
 import BookingCartDrawer from './components/BookingCartDrawer.jsx';
 import LandingPage from './pages/LandingPage.jsx';
+import AboutPage from './pages/AboutPage.jsx';
 import NotFound from './pages/NotFound.jsx';
 import { CustomerLogin, CustomerSignup, StaffLogin, StaffSignup, ForgotPassword } from './pages/AuthPages.jsx';
 import { BusinessDetails, BusinessSearch } from './pages/BusinessPages.jsx';
@@ -26,6 +27,7 @@ export default function App() {
       <Routes>
         {/* Public Browsing Routes */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/businesses" element={<BusinessSearch />} />
         <Route path="/businesses/:businessId" element={<BusinessDetails />} />
         <Route path="/display/:businessId" element={<PublicDisplay />} />
@@ -50,6 +52,8 @@ export default function App() {
         {/* Customer Protected Routes (Requires authenticated Customer) */}
         <Route element={<ProtectedRoute role="customer" />}>
           <Route path="/customer/dashboard" element={<CustomerDashboard />} />
+          <Route path="/customer/businesses" element={<BusinessSearch />} />
+          <Route path="/customer/businesses/:businessId" element={<BusinessDetails />} />
           <Route path="/customer/queue/:entryId" element={<QueueTracking />} />
           <Route path="/customer/appointments" element={<CustomerHistory type="appointments" />} />
           <Route path="/customer/queues" element={<CustomerHistory type="queues" />} />

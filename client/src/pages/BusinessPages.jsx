@@ -22,8 +22,12 @@ import SmartRecommendationCard from '../components/SmartRecommendationCard.jsx';
 import MapplsNavigationModal from '../components/MapplsNavigationModal.jsx';
 import RushHourMeter from '../components/RushHourMeter.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
+import { CustomerShell } from './CustomerPages.jsx';
 import { useQueueStore, queueStore } from '../store/queueStore.js';
 import { useCart } from '../context/CartContext.jsx';
+import { useDebounce } from '../hooks/useDebounce.js';
+import { useFormValidation } from '../hooks/useFormValidation.js';
 import { apiRequest } from '../services/api.js';
 import { today, shortTime, formatTime12h, isBusinessOpen } from '../utils/format.js';
 import { getUserCoordinates, subscribeUserCoordinates, formatDistance, calculateDistance } from '../utils/geo.js';
@@ -32,16 +36,33 @@ import { triggerConfettiBurst } from '../utils/confetti.js';
 
 const businessTypes = ['', 'Clinic', 'Hospital', 'Restaurant', 'Government Office', 'Bank', 'Salon', 'Service Center', 'Other'];
 
+function BusinessPageShell({ title, subtitle, children }) {
+  const { customer } = useAuth();
+  if (customer) {
+    return (
+      <CustomerShell title={title} subtitle={subtitle}>
+        <div className="page-wrap">{children}</div>
+      </CustomerShell>
+    );
+  }
+  return <><PublicNav /><main className="page-wrap">{children}</main></>;
+}
+
 export function BusinessSearch() {
+  const { customer } = useAuth();
+  const { showToast } = useToast();
   const [query, setQuery] = useState('');
   const [type, setType] = useState('');
   const [businesses, setBusinesses] = useState([]);
   const [status, setStatus] = useState({ loading: true, error: '' });
+  const [reloadKey, setReloadKey] = useState(0);
   const [userCoords, setUserCoords] = useState(null);
   const [navTarget, setNavTarget] = useState(null);
-  const { addToCart } = useCart(); // business object for Mappls modal
+  const { addToCart } = useCart();
   const toast = useToast();
   const bookmarks = useQueueStore((s) => s.bookmarkedIds);
+  const debouncedQuery = useDebounce(query, 400);
+  const businessPath = customer ? '/customer/businesses' : '/businesses';
 
   useEffect(() => {
     const unsubscribe = subscribeUserCoordinates((coords) => {
@@ -52,26 +73,24 @@ export function BusinessSearch() {
   }, []);
 
   useEffect(() => {
-    const timeout = setTimeout(async () => {
-      setStatus({ loading: true, error: '' });
-      try {
-        const params = new URLSearchParams({ search: query });
-        if (type) params.set('type', type);
-        const data = await apiRequest(`/businesses?${params.toString()}`);
-        setBusinesses(data);
-        setStatus({ loading: false, error: '' });
-      } catch (error) {
+    const controller = new AbortController();
+    setStatus({ loading: true, error: '' });
+    const params = new URLSearchParams({ search: debouncedQuery });
+    if (type) params.set('type', type);
+    apiRequest(`/businesses?${params.toString()}`, { signal: controller.signal })
+      .then((data) => { setBusinesses(data); setStatus({ loading: false, error: '' }); })
+      .catch((error) => {
+        if (error.name === 'AbortError') return;
         setBusinesses([]);
-        setStatus({ loading: false, error: `${error.message}. Check network connection.` });
-      }
-    }, 250);
-    return () => clearTimeout(timeout);
-  }, [query, type]);
+        setStatus({ loading: false, error: error.message });
+        showToast(error.message + '. Check network connection.', 'error');
+      });
+    return () => controller.abort();
+  }, [debouncedQuery, type, reloadKey]);
+
 
   return (
-    <>
-      <PublicNav />
-      <main className="page-wrap">
+      <BusinessPageShell title="Find a queue" subtitle="Search businesses, compare live waits, and join a queue.">
         <div className="page-title">
           <span className="eyebrow">Find a queue</span>
           <h1>Search Businesses &amp; Branches</h1>
@@ -96,7 +115,7 @@ export function BusinessSearch() {
           </select>
         </div>
 
-        {status.error && <p className="soft-alert">{status.error}</p>}
+        {status.error && <p className="soft-alert" role="alert">{status.error} <button className="button small" type="button" onClick={() => setReloadKey((key) => key + 1)}>Retry</button></p>}
         {status.loading && <p className="empty">Loading businesses...</p>}
 
         <div className="business-grid">
@@ -147,7 +166,7 @@ export function BusinessSearch() {
                 {/* Business Name & Description */}
                 <div className="card-body-content">
                   <h2 className="card-business-name">
-                    <Link to={`/businesses/${business.business_id}`}>{business.name}</Link>
+                    <Link to={`${businessPath}/${business.business_id}`}>{business.name}</Link>
                   </h2>
                   <p className="card-business-desc">
                     {business.description || `${business.type} facility providing specialized consultations and swift queue service.`}
@@ -188,7 +207,7 @@ export function BusinessSearch() {
                 {/* Action Buttons */}
                 <div className="card-actions-row">
                   <Link
-                    to={`/businesses/${business.business_id}`}
+                    to={`${businessPath}/${business.business_id}`}
                     className="button small primary"
                   >
                     View Details
@@ -220,14 +239,15 @@ export function BusinessSearch() {
             onClose={() => setNavTarget(null)}
           />
         )}
-      </main>
-    </>
+      </BusinessPageShell>
   );
 }
 
 export function BusinessDetails() {
+  const { customer } = useAuth();
   const { businessId } = useParams();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [business, setBusiness] = useState(null);
   const [services, setServices] = useState([]);
   const [siblingBranches, setSiblingBranches] = useState([]);
@@ -235,39 +255,76 @@ export function BusinessDetails() {
   const [selectedService, setSelectedService] = useState('');
   const [appointmentDate, setAppointmentDate] = useState(today());
   const [appointmentTime, setAppointmentTime] = useState('10:00');
-  const [message, setMessage] = useState('');
   const [status, setStatus] = useState({ loading: true, error: '' });
+  const [reloadKey, setReloadKey] = useState(0);
   const [userCoords, setUserCoords] = useState(null);
   const [navTarget, setNavTarget] = useState(null);
   const { addToCart } = useCart();
+  const { errors: bookingErrors, validate: validateBooking, clearField: clearBookingField } = useFormValidation({
+    service_id: { required: true, label: 'Service' },
+    appointment_date: { required: true, label: 'Appointment date', custom: (value) => value < today() ? 'Choose today or a future date.' : null },
+    appointment_time: { required: true, label: 'Appointment time' },
+  });
+  const businessPath = customer ? '/customer/businesses' : '/businesses';
 
-  async function loadData() {
+  async function loadData(signal) {
     setStatus({ loading: true, error: '' });
     try {
       const coords = await getUserCoordinates();
       setUserCoords(coords);
-      const params = coords ? `?lat=${coords.lat}&lng=${coords.lng}` : '';
-      const data = await apiRequest(`/businesses/${businessId}${params}`);
+      const params = coords && !coords.isFallback ? `?lat=${coords.lat}&lng=${coords.lng}` : '';
+      const data = await apiRequest(`/businesses/${businessId}${params}`, { signal });
       setBusiness(data.business);
       setServices(data.services || []);
       setSiblingBranches(data.siblingBranches || []);
-      setRecommendation(data.recommendation || null);
+      setRecommendation(null);
       setSelectedService(String(data.services?.[0]?.service_id || ''));
       setStatus({ loading: false, error: '' });
     } catch (error) {
+      if (error.name === 'AbortError') return;
       setStatus({ loading: false, error: `${error.message}. Check backend connection.` });
     }
   }
 
   useEffect(() => {
+    const controller = new AbortController();
     const unsubscribe = subscribeUserCoordinates((coords) => {
       if (coords) setUserCoords(coords);
     });
-    loadData();
-    return () => unsubscribe();
-  }, [businessId]);
+    loadData(controller.signal);
+    return () => {
+      unsubscribe();
+      controller.abort();
+    };
+  }, [businessId, reloadKey]);
+
+  useEffect(() => {
+    if (!selectedService) return undefined;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ service_id: selectedService });
+    if (userCoords && !userCoords.isFallback) {
+      params.set('lat', String(userCoords.lat));
+      params.set('lng', String(userCoords.lng));
+    }
+    async function refreshRecommendation() {
+      try {
+        const data = await apiRequest(`/businesses/${businessId}/recommendation?${params}`, { signal: controller.signal });
+        setRecommendation(data.recommendation || null);
+      } catch (error) {
+        if (error.name !== 'AbortError') setRecommendation(null);
+      }
+    }
+
+    refreshRecommendation();
+    const interval = setInterval(refreshRecommendation, 10000);
+    return () => {
+      clearInterval(interval);
+      controller.abort();
+    };
+  }, [businessId, selectedService, userCoords]);
 
   async function bookAppointment(serviceId = selectedService, targetBizId = businessId) {
+    if (!validateBooking({ service_id: String(serviceId || ''), appointment_date: appointmentDate, appointment_time: appointmentTime })) return;
     try {
       const data = await apiRequest('/customer/appointments', {
         method: 'POST',
@@ -282,7 +339,7 @@ export function BusinessDetails() {
       triggerConfettiBurst();
       navigate(`/customer/queue/${data.entry_id}`);
     } catch (error) {
-      setMessage(`${error.message}. Please login as a customer before booking.`);
+      showToast(error.message + '. Please login as a customer before booking.', 'error');
     }
   }
 
@@ -296,33 +353,46 @@ export function BusinessDetails() {
       triggerConfettiBurst();
       navigate(`/customer/queue/${data.entry_id}`);
     } catch (error) {
-      setMessage(`${error.message}. Please login as a customer before joining.`);
+      showToast(error.message + '. Please login as a customer before joining.', 'error');
     }
   }
 
   function handleSelectAlternative(alternativeId) {
-    navigate(`/businesses/${alternativeId}`);
+    navigate(`${businessPath}/${alternativeId}`);
   }
 
   function handleJoinAlternative(alternativeId) {
-    joinQueue(selectedService, alternativeId);
+    const selected = services.find((service) => String(service.service_id) === String(selectedService));
+    if (!selected) return;
+
+    apiRequest(`/businesses/${alternativeId}`)
+      .then((data) => {
+        const matchingService = (data.services || []).find(
+          (service) => service.service_name.trim().toLowerCase() === selected.service_name.trim().toLowerCase()
+        );
+        if (!matchingService) {
+          showToast(`${selected.service_name} is not offered at that branch. Choose one of its available services instead.`, 'info');
+          navigate(`${businessPath}/${alternativeId}`);
+          return;
+        }
+        joinQueue(matchingService.service_id, alternativeId);
+      })
+      .catch((error) => showToast(error.message || 'Could not check this branch’s services.', 'error'));
   }
 
   if (status.loading) {
     return (
-      <>
-        <PublicNav />
-        <main className="page-wrap"><p className="empty">Loading business details...</p></main>
-      </>
+      <BusinessPageShell title="Business Details" subtitle="Loading the selected branch.">
+        <p className="empty">Loading business details...</p>
+      </BusinessPageShell>
     );
   }
 
   if (status.error || !business) {
     return (
-      <>
-        <PublicNav />
-        <main className="page-wrap"><p className="soft-alert">{status.error || 'Business not found'}</p></main>
-      </>
+      <BusinessPageShell title="Business Details" subtitle="Branch information could not be loaded.">
+        <p className="soft-alert" role="alert">{status.error || 'Business not found'} {status.error && <button className="button small" type="button" onClick={() => setReloadKey((key) => key + 1)}>Retry</button>}</p>
+      </BusinessPageShell>
     );
   }
 
@@ -333,9 +403,7 @@ export function BusinessDetails() {
   const estWait = (business.waiting_now || 0) * (business.average_duration || 12);
 
   return (
-    <>
-      <PublicNav />
-      <main className="page-wrap">
+      <BusinessPageShell title={business.name} subtitle="View branch details, services, and current wait times.">
         {/* Smart Queue Recommendation Card if current wait is long */}
         {recommendation && (
           <SmartRecommendationCard
@@ -450,7 +518,7 @@ export function BusinessDetails() {
                 </div>
                 <div className="sibling-list">
                   {siblingBranches.map((sib) => (
-                    <Link to={`/businesses/${sib.business_id}`} className="sibling-chip" key={sib.business_id}>
+                    <Link to={`${businessPath}/${sib.business_id}`} className="sibling-chip" key={sib.business_id}>
                       <strong>{sib.branch_name || sib.name}</strong>
                       <small>{sib.waiting_now || 0} waiting &bull; {sib.address}</small>
                     </Link>
@@ -474,7 +542,7 @@ export function BusinessDetails() {
                         name="service"
                         value={service.service_id}
                         checked={selectedService === String(service.service_id)}
-                        onChange={(e) => setSelectedService(e.target.value)}
+                        onChange={(e) => { setSelectedService(e.target.value); clearBookingField('service_id'); }}
                       />
                       <div className="service-info-col">
                         <strong>{service.service_name}</strong>
@@ -514,6 +582,7 @@ export function BusinessDetails() {
                     </div>
                   </article>
                 ))}
+                {bookingErrors.service_id && <span className="form-field-error" role="alert">{bookingErrors.service_id}</span>}
               </div>
             </div>
           </section>
@@ -527,16 +596,18 @@ export function BusinessDetails() {
                 type="date"
                 value={appointmentDate}
                 min={today()}
-                onChange={(e) => setAppointmentDate(e.target.value)}
+                onChange={(e) => { setAppointmentDate(e.target.value); clearBookingField('appointment_date'); }}
               />
+              {bookingErrors.appointment_date && <span className="form-field-error" role="alert">{bookingErrors.appointment_date}</span>}
             </label>
             <label>
               Preferred Time
               <input
                 type="time"
                 value={appointmentTime}
-                onChange={(e) => setAppointmentTime(e.target.value)}
+                onChange={(e) => { setAppointmentTime(e.target.value); clearBookingField('appointment_time'); }}
               />
+              {bookingErrors.appointment_time && <span className="form-field-error" role="alert">{bookingErrors.appointment_time}</span>}
             </label>
             <button
               type="button"
@@ -553,8 +624,6 @@ export function BusinessDetails() {
             >
               <Ticket size={18} /> Join Live Virtual Queue
             </button>
-
-            {message && <p className="soft-alert">{message}</p>}
 
             <div className="mini-ticket">
               <CheckCircle2 size={16} className="text-brand" />
@@ -575,7 +644,6 @@ export function BusinessDetails() {
             onClose={() => setNavTarget(null)}
           />
         )}
-      </main>
-    </>
+      </BusinessPageShell>
   );
 }

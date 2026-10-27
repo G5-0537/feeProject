@@ -84,25 +84,58 @@ router.post('/staff/login', async (req, res, next) => {
 });
 
 router.post('/staff/signup', async (req, res, next) => {
+  let connection;
+  let transactionStarted = false;
   try {
     const { business_name, business_type = 'Clinic', name, email, phone, password } = req.body;
     if (!business_name || !name || !email || !password) {
       return res.status(400).json({ message: 'Business name, staff name, email and password are required.' });
     }
 
-    // 1. Create or find business
-    const [bizResult] = await pool.execute(
-      'INSERT INTO businesses (name, type, address, contact, opening_time, closing_time) VALUES (?, ?, ?, ?, ?, ?)',
-      [business_name, business_type, 'Main Branch Address', phone || '+1 555-0000', '09:00:00', '18:00:00']
+    const [existingStaff] = await pool.execute(
+      'SELECT staff_id FROM staff WHERE email = ? LIMIT 1',
+      [email]
     );
-    const businessId = bizResult.insertId;
+    if (existingStaff.length) {
+      return res.status(409).json({ message: 'A staff account with this email already exists.' });
+    }
 
-    // 2. Hash password & insert staff
-    const passwordHash = await bcrypt.hash(password, 10);
-    const [staffResult] = await pool.execute(
-      'INSERT INTO staff (business_id, name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
-      [businessId, name, email, phone || '', passwordHash, 'Manager']
+    const [existingBusinesses] = await pool.execute(
+      `SELECT b.business_id, b.name,
+              (SELECT COUNT(*) FROM staff st WHERE st.business_id = b.business_id) AS staff_count
+       FROM businesses b
+       WHERE LOWER(TRIM(b.name)) = LOWER(TRIM(?)) AND b.type = ? AND b.is_active = TRUE
+       LIMIT 1`,
+      [business_name, business_type]
     );
+    if (existingBusinesses.length && Number(existingBusinesses[0].staff_count) > 0) {
+      return res.status(409).json({ message: 'A business with this name and category is already registered. Please use the existing staff login or contact the business administrator.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+    transactionStarted = true;
+
+    let businessId;
+    let businessDisplayName = business_name;
+    if (existingBusinesses.length) {
+      businessId = existingBusinesses[0].business_id;
+      businessDisplayName = existingBusinesses[0].name;
+    } else {
+      const [bizResult] = await connection.execute(
+        `INSERT INTO businesses (brand_name, branch_name, name, type, address, contact, opening_time, closing_time)
+         VALUES (?, 'Main Branch', ?, ?, 'Main Branch Address', ?, '09:00:00', '18:00:00')`,
+        [business_name, business_name, business_type, phone || '+1 555-0000']
+      );
+      businessId = bizResult.insertId;
+    }
+    const [staffResult] = await connection.execute(
+      'INSERT INTO staff (business_id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)',
+      [businessId, name, email, passwordHash, 'Manager']
+    );
+    await connection.commit();
+    transactionStarted = false;
 
     const token = signToken({
       id: staffResult.insertId,
@@ -117,7 +150,7 @@ router.post('/staff/signup', async (req, res, next) => {
       staff: {
         staff_id: staffResult.insertId,
         business_id: businessId,
-        business_name,
+        business_name: businessDisplayName,
         business_type,
         name,
         email,
@@ -125,8 +158,11 @@ router.post('/staff/signup', async (req, res, next) => {
       }
     });
   } catch (error) {
+    if (transactionStarted) await connection.rollback();
     if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: 'A staff account with this email already exists.' });
     next(error);
+  } finally {
+    connection?.release();
   }
 });
 

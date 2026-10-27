@@ -9,6 +9,7 @@ let toastIdCounter = 0;
  * Global Toast Notification Provider
  * Manages async state feedback (Success, Error, Info, Warning) across the multi-page SPA.
  * Demonstrates Context API state architecture and global notification dispatch.
+ * Backwards compatible with both `toast.success(...)` and `const { showToast } = useToast()`.
  */
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
@@ -32,16 +33,23 @@ export function ToastProvider({ children }) {
     return id;
   }, [removeToast]);
 
-  const toast = useMemo(() => ({
-    success: (message, duration) => addToast({ message, type: 'success', duration }),
-    error: (message, duration) => addToast({ message, type: 'error', duration }),
-    info: (message, duration) => addToast({ message, type: 'info', duration }),
-    warning: (message, duration) => addToast({ message, type: 'warning', duration }),
-    remove: removeToast
-  }), [addToast, removeToast]);
+  const showToast = useCallback((message, type = 'info', duration = 3500) => {
+    return addToast({ message, type, duration });
+  }, [addToast]);
+
+  const toastMethods = useMemo(() => {
+    const fn = (message, type, duration) => showToast(message, type, duration);
+    fn.showToast = showToast;
+    fn.success = (message, duration) => addToast({ message, type: 'success', duration });
+    fn.error = (message, duration) => addToast({ message, type: 'error', duration });
+    fn.info = (message, duration) => addToast({ message, type: 'info', duration });
+    fn.warning = (message, duration) => addToast({ message, type: 'warning', duration });
+    fn.remove = removeToast;
+    return fn;
+  }, [addToast, removeToast, showToast]);
 
   return (
-    <ToastContext.Provider value={toast}>
+    <ToastContext.Provider value={toastMethods}>
       {children}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </ToastContext.Provider>
@@ -60,7 +68,7 @@ function ToastContainer({ toasts, onDismiss }) {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="global-toast-container" role="region" aria-label="Notifications">
+    <div className="global-toast-container toast-container" role="region" aria-label="Notifications" aria-live="polite">
       {toasts.map((item) => (
         <div key={item.id} className={`toast-card toast-${item.type}`} role="status">
           <div className="toast-icon">
