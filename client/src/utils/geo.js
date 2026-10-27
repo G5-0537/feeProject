@@ -274,27 +274,103 @@ export function calculateTravelEstimates(distanceKm, realSpeedKmh = null, navMod
   return { driveMinutes, walkMinutes };
 }
 
+// ============================================================================
+// SHARED GPS COORDINATES MANAGER & SUBSCRIBER SYSTEM
+// Synchronizes live GPS across branch listings, details, and navigation modal
+// ============================================================================
+
+let cachedCoords = null;
+try {
+  const saved = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("queless_gps_coords") : null;
+  if (saved) {
+    cachedCoords = JSON.parse(saved);
+  }
+} catch (e) {
+  // Ignore sessionStorage parse errors
+}
+
+const coordListeners = new Set();
+
 /**
- * Attempts single-shot GPS fetch
+ * Updates shared coordinates and notifies all active component subscribers
+ */
+export function setSharedUserCoordinates(coords) {
+  if (!coords || typeof coords.lat !== "number" || typeof coords.lng !== "number") return;
+  cachedCoords = {
+    lat: coords.lat,
+    lng: coords.lng,
+    isLive: Boolean(coords.isLive),
+    accuracy: coords.accuracy || null,
+    timestamp: Date.now()
+  };
+  try {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem("queless_gps_coords", JSON.stringify(cachedCoords));
+    }
+  } catch (e) {}
+
+  coordListeners.forEach((fn) => {
+    try {
+      fn(cachedCoords);
+    } catch (err) {
+      console.warn("Coordinate listener error:", err);
+    }
+  });
+}
+
+/**
+ * Subscribes a React component to live coordinate changes
+ */
+export function subscribeUserCoordinates(callback) {
+  if (typeof callback !== "function") return () => {};
+  coordListeners.add(callback);
+  if (cachedCoords) {
+    callback(cachedCoords);
+  }
+  return () => {
+    coordListeners.delete(callback);
+  };
+}
+
+/**
+ * Retrieves current active coordinates (live or fallback)
+ */
+export function getActiveUserCoordinates() {
+  if (cachedCoords) return cachedCoords;
+  return { ...DEFAULT_COORDINATES, isLive: false };
+}
+
+/**
+ * Attempts single-shot GPS fetch and updates shared coordinate cache
  */
 export function getUserCoordinates() {
+  if (cachedCoords && cachedCoords.isLive) {
+    return Promise.resolve(cachedCoords);
+  }
+
   return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      resolve(DEFAULT_COORDINATES);
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      const fallback = cachedCoords || { ...DEFAULT_COORDINATES, isLive: false };
+      resolve(fallback);
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        resolve({
+        const liveCoords = {
           lat: position.coords.latitude,
-          lng: position.coords.longitude
-        });
+          lng: position.coords.longitude,
+          isLive: true,
+          accuracy: Math.round(position.coords.accuracy || 10)
+        };
+        setSharedUserCoordinates(liveCoords);
+        resolve(liveCoords);
       },
       () => {
-        resolve(DEFAULT_COORDINATES);
+        const fallback = cachedCoords || { ...DEFAULT_COORDINATES, isLive: false };
+        resolve(fallback);
       },
-      { timeout: 5000, enableHighAccuracy: true }
+      { timeout: 8000, enableHighAccuracy: true }
     );
   });
 }

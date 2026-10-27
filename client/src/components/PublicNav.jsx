@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, Home, Building2, HelpCircle, User, Briefcase, LogOut, UserPlus, Sparkles } from 'lucide-react';
+import { Menu, X, Home, Building2, HelpCircle, User, Briefcase, LogOut, UserPlus, Sparkles, ShoppingBag, FolderGit2 } from 'lucide-react';
 import Logo from './Logo.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useCart } from '../context/CartContext.jsx';
 
 export default function PublicNav() {
   const { customer, staff, logoutCustomer, logoutStaff } = useAuth();
+  const { count: cartCount, toggleCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -74,6 +76,21 @@ export default function PublicNav() {
         <button type="button" className="nav-button" onClick={handleHowItWorks}>
           How It Works
         </button>
+        <NavLink to="/portfolio" className="portfolio-nav-pill-link">
+          <FolderGit2 size={14} /> Portfolio
+        </NavLink>
+        
+        {/* Shopping Cart / Booking Basket Button */}
+        <button
+          type="button"
+          className="nav-cart-btn"
+          onClick={toggleCart}
+          title="Open Service Booking Basket"
+          aria-label="Open Booking Basket"
+        >
+          <ShoppingBag size={17} />
+          {cartCount > 0 && <span className="nav-cart-badge">{cartCount}</span>}
+        </button>
         
         {customer && (
           <>
@@ -133,6 +150,21 @@ export default function PublicNav() {
               <Building2 size={18} />
               <span>Businesses &amp; Branches</span>
             </NavLink>
+            <NavLink to="/portfolio" className="mobile-nav-link" onClick={() => setMobileOpen(false)}>
+              <FolderGit2 size={18} />
+              <span>Student Portfolio (FEE-II)</span>
+            </NavLink>
+            <button 
+              type="button" 
+              className="mobile-nav-link text-btn" 
+              onClick={() => {
+                setMobileOpen(false);
+                toggleCart();
+              }}
+            >
+              <ShoppingBag size={18} />
+              <span>Booking Basket ({cartCount})</span>
+            </button>
             <button type="button" className="mobile-nav-link text-btn" onClick={handleHowItWorks}>
               <HelpCircle size={18} />
               <span>How It Works</span>

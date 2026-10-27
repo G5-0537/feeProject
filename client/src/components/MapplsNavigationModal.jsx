@@ -34,10 +34,11 @@ import {
   evaluateGpsNavigationProgress,
   openMapplsNavigation,
   openMapNavigation,
+  setSharedUserCoordinates,
   DEFAULT_COORDINATES
 } from "../utils/geo.js";
 
-export default function MapplsNavigationModal({ business, userCoords: initialCoords, onClose }) {
+export default function MapplsNavigationModal({ business, userCoords: initialCoords, onCoordinatesUpdate, onClose }) {
   const [userCoords, setUserCoords] = useState(initialCoords || DEFAULT_COORDINATES);
   const [gpsAccuracy, setGpsAccuracy] = useState(null); // in meters
   const [gpsStatus, setGpsStatus] = useState("requesting"); // "requesting" | "locked" | "acquiring" | "denied" | "unavailable" | "timeout" | "lost"
@@ -112,7 +113,12 @@ export default function MapplsNavigationModal({ business, userCoords: initialCoo
         }
 
         prevPositionRef.current = { lat, lng, time: timestamp };
-        setUserCoords({ lat, lng });
+        const liveCoords = { lat, lng, isLive: true, accuracy };
+        setSharedUserCoordinates(liveCoords);
+        setUserCoords(liveCoords);
+        if (onCoordinatesUpdate) {
+          onCoordinatesUpdate(liveCoords);
+        }
         setGpsAccuracy(accuracy);
         setGpsSpeed(speedKmh);
         setLastGpsTimestamp(timestamp);

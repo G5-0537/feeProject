@@ -5,8 +5,11 @@ import DashboardShell from '../components/DashboardShell.jsx';
 import StatCard from '../components/StatCard.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import QRCodePass from '../components/QRCodePass.jsx';
+import DigitalTokenBoardingPass from '../components/DigitalTokenBoardingPass.jsx';
 import SmartRecommendationCard from '../components/SmartRecommendationCard.jsx';
+import AsyncHandler from '../components/AsyncHandler.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useToast } from '../context/ToastContext.jsx';
 import { apiRequest } from '../services/api.js';
 import { openMapNavigation } from '../utils/geo.js';
 
@@ -85,27 +88,29 @@ export function CustomerDashboard() {
       <section className="content-grid">
         <div className="panel">
           <h2>Active Queue Tickets</h2>
-          {data.activeQueues.map((item) => (
-            <article className="queue-row" key={item.entry_id}>
-              <Link to={`/customer/queue/${item.entry_id}`}>
-                <strong>Token #{item.token_number}</strong>
-                <span>{item.business_name} &bull; {item.service_name}</span>
-              </Link>
-              <div className="queue-row-metrics">
-                <span>Serving #{item.current_token}</span>
-                <span>{item.people_ahead} ahead</span>
-                <span>{item.estimated_wait}</span>
-                <StatusBadge status={item.status} />
-              </div>
-              <button className="icon-button" title="Cancel queue entry" onClick={() => cancelQueue(item.entry_id)}><XCircle size={17} /></button>
-            </article>
-          ))}
-          {!status.loading && !data.activeQueues.length && (
-            <div className="empty-callout">
-              <p className="empty">You are not currently waiting in any queue.</p>
-              <Link to="/businesses" className="button secondary small">Browse Nearby Queues</Link>
-            </div>
-          )}
+          <AsyncHandler
+            loading={status.loading && !data.activeQueues.length}
+            error={status.error}
+            onRetry={loadDashboard}
+            isEmpty={!status.loading && !data.activeQueues.length}
+            emptyMessage="You are not currently waiting in any queue. Browse nearby clinics and services to join."
+          >
+            {data.activeQueues.map((item) => (
+              <article className="queue-row" key={item.entry_id}>
+                <Link to={`/customer/queue/${item.entry_id}`}>
+                  <strong>Token #{item.token_number}</strong>
+                  <span>{item.business_name} &bull; {item.service_name}</span>
+                </Link>
+                <div className="queue-row-metrics">
+                  <span>Serving #{item.current_token}</span>
+                  <span>{item.people_ahead} ahead</span>
+                  <span>{item.estimated_wait}</span>
+                  <StatusBadge status={item.status} />
+                </div>
+                <button className="icon-button" title="Cancel queue entry" onClick={() => cancelQueue(item.entry_id)}><XCircle size={17} /></button>
+              </article>
+            ))}
+          </AsyncHandler>
         </div>
         <div className="panel">
           <h2>Recent Appointments</h2>
@@ -194,18 +199,17 @@ export function QueueTracking() {
         />
       )}
 
-      <section className="tracking-board">
-        <QueueMetric label="Your Token" value={`#${snapshot.token_number}`} />
-        <QueueMetric label="Now Serving" value={`#${snapshot.current_token || 0}`} />
-        <QueueMetric label="People Ahead" value={snapshot.people_ahead} />
-        <QueueMetric label="Estimated Wait" value={snapshot.estimated_wait} />
-      </section>
+      {/* Interactive Apple-Wallet style Digital Boarding Pass */}
+      <DigitalTokenBoardingPass
+        snapshot={snapshot}
+        onNavigate={() => openMapNavigation(snapshot.latitude, snapshot.longitude, snapshot.business_address, snapshot.business_name)}
+      />
 
-      <div className="tracking-details-grid">
+      <div className="tracking-details-grid" style={{ marginTop: '24px' }}>
         <div className="panel tracking-status">
           <StatusBadge status={snapshot.status} />
           <h2>{snapshot.position_message}</h2>
-          <p>Estimated waiting time updates dynamically based on active queue throughput.</p>
+          <p>Estimated waiting time updates dynamically based on active counter throughput and patient callouts.</p>
           <div className="progress-track">
             <span style={{ width: `${Math.max(10, 100 - snapshot.people_ahead * 9)}%` }} />
           </div>
@@ -226,7 +230,7 @@ export function QueueTracking() {
         <div className="panel qr-pass-panel">
           <QRCodePass
             value={`QUELESS:${snapshot.business_name}:TOKEN-${snapshot.token_number}:ENTRY-${snapshot.entry_id}`}
-            label={`Token #${snapshot.token_number} Digital Verification Pass`}
+            label={`Token #${snapshot.token_number} Official Gate Validation Code`}
           />
         </div>
       </div>

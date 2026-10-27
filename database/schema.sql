@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS queless_db;
-USE queless_db;
+CREATE DATABASE IF NOT EXISTS QueLess;
+USE QueLess;
 
 DROP VIEW IF EXISTS active_queue_overview;
 DROP VIEW IF EXISTS service_performance_summary;
@@ -61,6 +61,7 @@ CREATE TABLE staff (
   business_id INT NOT NULL,
   name VARCHAR(100) NOT NULL,
   email VARCHAR(120) NOT NULL UNIQUE,
+  phone VARCHAR(20) NULL,
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('Receptionist','Doctor','Manager','Operator') NOT NULL DEFAULT 'Receptionist',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -110,10 +111,7 @@ CREATE TABLE queue_entries (
   CONSTRAINT fk_entries_queue FOREIGN KEY (queue_id) REFERENCES queues(queue_id) ON DELETE CASCADE,
   CONSTRAINT fk_entries_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE SET NULL,
   CONSTRAINT fk_entries_appointment FOREIGN KEY (appointment_id) REFERENCES appointments(appointment_id) ON DELETE SET NULL,
-  CONSTRAINT uq_queue_token UNIQUE (queue_id, token_number),
-  CONSTRAINT chk_entry_owner CHECK (
-    user_id IS NOT NULL OR appointment_id IS NOT NULL OR walk_in_name IS NOT NULL
-  )
+  CONSTRAINT uq_queue_token UNIQUE (queue_id, token_number)
 );
 
 CREATE TABLE service_duration_history (

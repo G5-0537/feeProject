@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
-import { BarChart3, Building, CalendarDays, CheckCircle2, ClipboardList, Download, History, LayoutDashboard, MonitorPlay, Pause, Play, Plus, Scissors, Settings2, UserPlus, MapPin, Navigation } from 'lucide-react';
+import { BarChart3, Building, CalendarDays, CheckCircle2, ClipboardList, Download, History, LayoutDashboard, MonitorPlay, Pause, Play, Plus, Scissors, Settings2, UserPlus, MapPin, Navigation, Phone, User, Search, RotateCcw } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import DashboardShell from '../components/DashboardShell.jsx';
 import StatCard from '../components/StatCard.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useToast } from '../context/ToastContext.jsx';
 import { apiRequest } from '../services/api.js';
 import { announceToken, playChimeTone } from '../utils/audio.js';
 import { openMapNavigation } from '../utils/geo.js';
+import QueueAnalyticsVisualizer from '../components/QueueAnalyticsVisualizer.jsx';
+import { FormField, FormSelect, LoadingButton, ValidationMessage } from '../components/forms/index.js';
+import { validatePhone, validateRequired } from '../utils/validation.js';
+import AsyncHandler from '../components/AsyncHandler.jsx';
 
 const staffLinks = [
   { to: '/staff/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
@@ -180,9 +185,14 @@ export function TodaysQueue() {
   const [services, setServices] = useState([]);
   const [selectedService, setSelectedService] = useState('');
   const [message, setMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [status, setStatus] = useState({ loading: true, error: '' });
+  const toast = useToast();
   const businessId = staff?.business_id || 1;
 
   async function load() {
+    setStatus((prev) => ({ ...prev, loading: true, error: '' }));
     try {
       const [queueRows, serviceRows] = await Promise.all([
         apiRequest('/staff/queue', { staff: true }),
@@ -190,10 +200,14 @@ export function TodaysQueue() {
       ]);
       setRows(queueRows);
       setServices(serviceRows);
-      setSelectedService(String(serviceRows[0]?.service_id || ''));
-    } catch {
+      if (!selectedService && serviceRows[0]?.service_id) {
+        setSelectedService(String(serviceRows[0].service_id));
+      }
+      setStatus({ loading: false, error: '' });
+    } catch (err) {
       setRows([]);
       setServices([]);
+      setStatus({ loading: false, error: err.message || 'Login as staff to manage live queue.' });
       setMessage('Login as staff to manage the live queue.');
     }
   }
@@ -212,6 +226,7 @@ export function TodaysQueue() {
         staff: true
       });
       setMessage(result.message);
+      toast.success(result.message);
 
       playChimeTone();
       if (result.entry?.token_number) {
@@ -222,22 +237,44 @@ export function TodaysQueue() {
       load();
     } catch (error) {
       setMessage(error.message);
+      toast.warning(error.message);
     }
   }
 
-  async function updateStatus(entryId, status) {
+  async function updateStatus(entryId, targetStatus) {
     try {
       const result = await apiRequest(`/staff/queue/${entryId}/status`, {
         method: 'PATCH',
-        body: { status },
+        body: { status: targetStatus },
         staff: true
       });
       setMessage(result.message);
+      toast.success(result.message);
+      if (targetStatus === 'Now Serving') {
+        playChimeTone();
+      }
       load();
     } catch (error) {
       setMessage(error.message);
+      toast.error(error.message);
     }
   }
+
+  // Filter rows based on search and status
+  const filteredRows = rows.filter((row) => {
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch = !term ||
+      String(row.token_number).includes(term) ||
+      row.customer_name?.toLowerCase().includes(term) ||
+      row.service_name?.toLowerCase().includes(term) ||
+      row.source?.toLowerCase().includes(term);
+
+    const matchesStatus = statusFilter === 'ALL' ||
+      (statusFilter === 'ACTIVE' && ['Waiting', 'Approaching', 'Now Serving'].includes(row.status)) ||
+      row.status.toUpperCase() === statusFilter.toUpperCase();
+
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <StaffShell title="Live Queue Operations">
@@ -245,38 +282,90 @@ export function TodaysQueue() {
         <select value={selectedService} onChange={(e) => setSelectedService(e.target.value)}>
           {services.map((service) => <option key={service.service_id} value={service.service_id}>{service.service_name}</option>)}
         </select>
-        <button className="button" onClick={callNext}>Call Next Customer</button>
+        <button className="button primary" onClick={callNext}>
+          <Play size={15} /> Call Next Customer
+        </button>
         <Link to={`/display/${businessId}`} target="_blank" className="button ghost small" title="Open TV Screen for Waiting Area">
           <MonitorPlay size={16} /> TV Screen
         </Link>
-        {message && <span className="toolbar-message">{message}</span>}
+
+        {/* Real-time search & filter bar */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Search size={15} style={{ position: 'absolute', left: '10px', color: 'var(--muted)', pointerEvents: 'none' }} />
+            <input
+              type="text"
+              placeholder="Search token or name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ paddingLeft: '32px', width: '180px', height: '36px', fontSize: '0.86rem' }}
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{ width: '140px', height: '36px', fontSize: '0.86rem' }}
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="ACTIVE">Active Queue</option>
+            <option value="WAITING">Waiting</option>
+            <option value="NOW SERVING">Now Serving</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="SKIPPED">Skipped</option>
+          </select>
+        </div>
       </div>
-      <QueueTable rows={rows} onUpdate={updateStatus} onReload={load} />
+
+      {message && <p className="soft-alert" style={{ marginBottom: '16px' }}>{message}</p>}
+
+      <AsyncHandler
+        loading={status.loading && !rows.length}
+        error={status.error}
+        onRetry={load}
+        isEmpty={!status.loading && !filteredRows.length}
+        emptyMessage={searchTerm || statusFilter !== 'ALL' ? 'No queue tickets match your search or filter.' : 'No active queue tickets currently in line.'}
+      >
+        <QueueTable rows={filteredRows} onUpdate={updateStatus} onReload={load} />
+      </AsyncHandler>
     </StaffShell>
   );
 }
 
 function QueueTable({ rows, onUpdate, onReload }) {
-  async function handleAction(entryId, status) {
+  const toast = useToast();
+
+  async function handleAction(row, targetStatus) {
+    // Guardrail against invalid state transitions
+    if (targetStatus === 'Completed' && row.status !== 'Now Serving') {
+      toast.warning(`Token #${row.token_number} must be called to the counter before marking as Completed.`);
+      return;
+    }
+
     if (onUpdate) {
-      onUpdate(entryId, status);
+      onUpdate(row.entry_id, targetStatus);
     } else {
       try {
-        await apiRequest(`/staff/queue/${entryId}/status`, {
+        await apiRequest(`/staff/queue/${row.entry_id}/status`, {
           method: 'PATCH',
-          body: { status },
+          body: { status: targetStatus },
           staff: true
         });
+        toast.success(`Token #${row.token_number} updated to ${targetStatus}.`);
+        if (targetStatus === 'Now Serving') {
+          playChimeTone();
+        }
         if (onReload) onReload();
       } catch (err) {
-        alert(err.message);
+        toast.error(err.message || 'Failed to update token status.');
       }
     }
   }
 
   return (
     <div className="panel">
-      <h2>Active Queue Tickets</h2>
+      <div className="table-header-row">
+        <h2>Active Queue Tickets ({rows?.length || 0})</h2>
+      </div>
       <table>
         <thead>
           <tr>
@@ -285,27 +374,82 @@ function QueueTable({ rows, onUpdate, onReload }) {
             <th>Service</th>
             <th>Source</th>
             <th>Status</th>
-            <th>Action</th>
+            <th style={{ textAlign: 'right' }}>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {rows?.map((row) => (
-            <tr key={row.entry_id} className={row.status === 'Now Serving' ? 'row-serving' : ''}>
-              <td><strong>#{row.token_number}</strong></td>
-              <td>{row.customer_name || 'Customer'}</td>
-              <td>{row.service_name}</td>
-              <td>{row.source || 'Online'}</td>
-              <td><StatusBadge status={row.status} /></td>
-              <td className="table-actions">
-                <button className="button small primary" title="Complete visit" onClick={() => handleAction(row.entry_id, 'Completed')}>
-                  <CheckCircle2 size={14} /> Complete
-                </button>
-                <button className="button small ghost" title="Skip token" onClick={() => handleAction(row.entry_id, 'Skipped')}>
-                  <Scissors size={14} /> Skip
-                </button>
-              </td>
-            </tr>
-          ))}
+          {rows?.map((row) => {
+            const isServing = row.status === 'Now Serving';
+            const isWaiting = ['Waiting', 'Approaching'].includes(row.status);
+            const isSkipped = row.status === 'Skipped';
+            const isCompleted = row.status === 'Completed';
+
+            return (
+              <tr key={row.entry_id} className={isServing ? 'row-serving' : ''}>
+                <td><strong>#{row.token_number}</strong></td>
+                <td>{row.customer_name || 'Customer'}</td>
+                <td>{row.service_name}</td>
+                <td>{row.source || 'Online'}</td>
+                <td><StatusBadge status={row.status} /></td>
+                <td className="table-actions" style={{ justifyContent: 'flex-end' }}>
+                  {isServing && (
+                    <>
+                      <button
+                        className="button small primary"
+                        title="Complete service visit"
+                        onClick={() => handleAction(row, 'Completed')}
+                      >
+                        <CheckCircle2 size={14} /> Complete
+                      </button>
+                      <button
+                        className="button small ghost"
+                        title="Skip customer"
+                        onClick={() => handleAction(row, 'Skipped')}
+                      >
+                        <Scissors size={14} /> Skip
+                      </button>
+                    </>
+                  )}
+
+                  {isWaiting && (
+                    <>
+                      <button
+                        className="button small secondary"
+                        title="Call customer to counter"
+                        onClick={() => handleAction(row, 'Now Serving')}
+                      >
+                        <Play size={14} /> Call Now
+                      </button>
+                      <button
+                        className="button small ghost"
+                        title="Skip token"
+                        onClick={() => handleAction(row, 'Skipped')}
+                      >
+                        <Scissors size={14} /> Skip
+                      </button>
+                    </>
+                  )}
+
+                  {isSkipped && (
+                    <button
+                      className="button small ghost"
+                      title="Recall customer back into queue"
+                      onClick={() => handleAction(row, 'Waiting')}
+                    >
+                      <RotateCcw size={14} /> Re-queue
+                    </button>
+                  )}
+
+                  {isCompleted && (
+                    <span className="sub-text" style={{ color: 'var(--success)' }}>
+                      <CheckCircle2 size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                      Done
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {!rows?.length && <p className="empty">No queue entries currently active.</p>}
@@ -409,9 +553,24 @@ export function StaffBranch() {
 
 export function StaffAppointments() {
   const [rows, setRows] = useState([]);
+  const [status, setStatus] = useState({ loading: true, error: '' });
+
+  async function load() {
+    setStatus({ loading: true, error: '' });
+    try {
+      const data = await apiRequest('/staff/appointments', { staff: true });
+      setRows(data);
+      setStatus({ loading: false, error: '' });
+    } catch (err) {
+      setRows([]);
+      setStatus({ loading: false, error: err.message || 'Failed to load appointments.' });
+    }
+  }
+
   useEffect(() => {
-    apiRequest('/staff/appointments', { staff: true }).then(setRows).catch(() => setRows([]));
+    load();
   }, []);
+
   return (
     <StaffShell title="Today's Appointments Schedule">
       <div className="panel">
@@ -423,11 +582,36 @@ export function StaffAppointments() {
             </button>
           )}
         </div>
-        <table>
-          <thead><tr><th>Time</th><th>Customer</th><th>Phone</th><th>Service</th><th>Status</th></tr></thead>
-          <tbody>{rows.map((row) => <tr key={row.appointment_id}><td>{row.appointment_time}</td><td>{row.customer_name}</td><td>{row.phone}</td><td>{row.service_name}</td><td><StatusBadge status={row.status} /></td></tr>)}</tbody>
-        </table>
-        {!rows.length && <p className="empty">No appointments loaded.</p>}
+        <AsyncHandler
+          loading={status.loading && !rows.length}
+          error={status.error}
+          onRetry={load}
+          isEmpty={!status.loading && !rows.length}
+          emptyMessage="No appointments scheduled for today."
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Service</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.appointment_id}>
+                  <td>{row.appointment_time}</td>
+                  <td>{row.customer_name}</td>
+                  <td>{row.phone}</td>
+                  <td>{row.service_name}</td>
+                  <td><StatusBadge status={row.status} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </AsyncHandler>
       </div>
     </StaffShell>
   );
@@ -436,7 +620,11 @@ export function StaffAppointments() {
 export function AddWalkIn() {
   const [services, setServices] = useState([]);
   const [form, setForm] = useState({ service_id: '', name: '', phone: '' });
+  const [touched, setTouched] = useState({});
+  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const toast = useToast();
+
   useEffect(() => {
     apiRequest('/staff/services', { staff: true }).then((data) => {
       setServices(data);
@@ -444,25 +632,102 @@ export function AddWalkIn() {
     }).catch(() => setMessage('Login as staff to add real walk-ins.'));
   }, []);
 
+  const nameError = validateRequired(form.name, 'Customer Name');
+  const phoneError = validatePhone(form.phone);
+  const isValid = !nameError && !phoneError;
+
   async function submit(event) {
     event.preventDefault();
+    setTouched({ name: true, phone: true });
+
+    if (!isValid) {
+      toast.warning('Please correct form validation errors.');
+      return;
+    }
+
+    setLoading(true);
+    setMessage('');
     try {
-      const data = await apiRequest('/staff/walk-ins', { method: 'POST', body: { ...form, service_id: Number(form.service_id) }, staff: true });
-      setMessage(`Walk-in added with token #${data.token_number}.`);
-      setForm({ ...form, name: '', phone: '' });
+      const data = await apiRequest('/staff/walk-ins', { 
+        method: 'POST', 
+        body: { ...form, service_id: Number(form.service_id) }, 
+        staff: true 
+      });
+      const successMsg = `Walk-in customer added with Token #${data.token_number}!`;
+      setMessage(successMsg);
+      toast.success(successMsg);
+      playChimeTone();
+      setForm({ service_id: String(services[0]?.service_id || ''), name: '', phone: '' });
+      setTouched({});
     } catch (error) {
       setMessage(error.message);
+      toast.error(error.message || 'Failed to add walk-in ticket.');
+    } finally {
+      setLoading(false);
     }
   }
 
+  const serviceOptions = services.map((s) => ({
+    value: s.service_id,
+    label: `${s.service_name} (~${s.default_duration_minutes || 15} mins)`
+  }));
+
   return (
     <StaffShell title="Add Walk-in Customer">
-      <form className="panel form-panel" onSubmit={submit}>
-        <label>Service<select value={form.service_id} onChange={(e) => setForm({ ...form, service_id: e.target.value })}>{services.map((service) => <option key={service.service_id} value={service.service_id}>{service.service_name}</option>)}</select></label>
-        <label>Customer Name<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></label>
-        <label>Phone<input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required /></label>
-        <button className="button"><Plus size={18} /> Add to Queue</button>
-        {message && <p className="soft-alert">{message}</p>}
+      <form className="panel form-panel" onSubmit={submit} noValidate>
+        <h2>Register Walk-in Visitor</h2>
+        <p className="sub-text">Generate a physical or digital queue token for patients and clients arriving without smartphones.</p>
+        
+        {message && <ValidationMessage message={message} type={message.includes('Token') ? 'success' : 'error'} />}
+
+        <FormSelect
+          id="walkin-service"
+          name="service_id"
+          label="Service Category"
+          value={form.service_id}
+          onChange={(e) => setForm({ ...form, service_id: e.target.value })}
+          options={serviceOptions}
+          required
+        />
+
+        <FormField
+          id="walkin-name"
+          name="name"
+          label="Customer Full Name"
+          placeholder="e.g. Rahul Sharma"
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          onBlur={() => setTouched((p) => ({ ...p, name: true }))}
+          error={nameError}
+          touched={touched.name}
+          required
+          icon={User}
+        />
+
+        <FormField
+          id="walkin-phone"
+          name="phone"
+          type="tel"
+          label="Mobile Phone Number"
+          placeholder="e.g. 9876543210"
+          value={form.phone}
+          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          onBlur={() => setTouched((p) => ({ ...p, phone: true }))}
+          error={phoneError}
+          touched={touched.phone}
+          required
+          icon={Phone}
+          helperText="Standard 10-digit mobile number for SMS/ticket lookup."
+        />
+
+        <LoadingButton
+          type="submit"
+          loading={loading}
+          loadingText="Generating Token..."
+          icon={Plus}
+        >
+          Add to Live Queue
+        </LoadingButton>
       </form>
     </StaffShell>
   );
@@ -470,39 +735,136 @@ export function AddWalkIn() {
 
 export function ServiceManagement() {
   const [services, setServices] = useState([]);
-  const [form, setForm] = useState({ service_name: '', default_duration_minutes: 10 });
-  const [message, setMessage] = useState('');
+  const [form, setForm] = useState({ service_name: '', default_duration_minutes: 15 });
+  const [touched, setTouched] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState({ loading: true, error: '' });
+  const toast = useToast();
 
   async function load() {
-    apiRequest('/staff/services', { staff: true }).then(setServices).catch(() => setServices([]));
+    setStatus({ loading: true, error: '' });
+    try {
+      const data = await apiRequest('/staff/services', { staff: true });
+      setServices(data);
+      setStatus({ loading: false, error: '' });
+    } catch (err) {
+      setServices([]);
+      setStatus({ loading: false, error: err.message || 'Failed to load services.' });
+    }
   }
+
   useEffect(() => { load(); }, []);
+
+  const nameError = validateRequired(form.service_name, 'Service Name');
 
   async function submit(event) {
     event.preventDefault();
+    setTouched({ service_name: true });
+
+    if (nameError) {
+      toast.warning('Please enter a valid service name.');
+      return;
+    }
+
+    setLoading(true);
     try {
-      await apiRequest('/staff/services', { method: 'POST', body: form, staff: true });
-      setForm({ service_name: '', default_duration_minutes: 10 });
-      setMessage('Service added.');
+      await apiRequest('/staff/services', {
+        method: 'POST',
+        body: {
+          ...form,
+          default_duration_minutes: Number(form.default_duration_minutes) || 15
+        },
+        staff: true
+      });
+      toast.success(`Service "${form.service_name}" created successfully.`);
+      setForm({ service_name: '', default_duration_minutes: 15 });
+      setTouched({});
       load();
     } catch (error) {
-      setMessage(error.message);
+      toast.error(error.message || 'Failed to create service.');
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
     <StaffShell title="Service Management">
-      <form className="toolbar-panel" onSubmit={submit}>
-        <input placeholder="Service name" value={form.service_name} onChange={(e) => setForm({ ...form, service_name: e.target.value })} required />
-        <input type="number" min="1" max="240" value={form.default_duration_minutes} onChange={(e) => setForm({ ...form, default_duration_minutes: Number(e.target.value) })} required />
-        <button className="button">Add Service</button>
+      <form className="panel form-panel" onSubmit={submit} noValidate style={{ marginBottom: '24px' }}>
+        <h2>Configure Branch Services</h2>
+        <p className="sub-text">Add custom consultation, diagnostic or counter service types with estimated duration benchmarks.</p>
+
+        <div className="grid-2">
+          <FormField
+            id="service-name-input"
+            name="service_name"
+            label="Service Title"
+            placeholder="e.g. Dental Cleaning"
+            value={form.service_name}
+            onChange={(e) => setForm({ ...form, service_name: e.target.value })}
+            onBlur={() => setTouched((p) => ({ ...p, service_name: true }))}
+            error={nameError}
+            touched={touched.service_name}
+            required
+            icon={Scissors}
+          />
+
+          <FormField
+            id="service-duration-input"
+            name="default_duration_minutes"
+            type="number"
+            label="Estimated Minutes"
+            placeholder="15"
+            value={form.default_duration_minutes}
+            onChange={(e) => setForm({ ...form, default_duration_minutes: e.target.value })}
+            required
+            helperText="Average consultation time per client."
+          />
+        </div>
+
+        <div style={{ marginTop: '12px' }}>
+          <LoadingButton
+            type="submit"
+            loading={loading}
+            loadingText="Saving Service..."
+            icon={Plus}
+          >
+            Add New Service
+          </LoadingButton>
+        </div>
       </form>
-      {message && <p className="soft-alert">{message}</p>}
+
       <div className="panel">
-        <table>
-          <thead><tr><th>Service</th><th>Default Duration</th><th>Historical Average</th><th>Completed</th></tr></thead>
-          <tbody>{services.map((service) => <tr key={service.service_id}><td>{service.service_name}</td><td>{service.default_duration_minutes} min</td><td>{service.calculated_average_minutes || service.default_duration_minutes} min</td><td>{service.completed_count || 0}</td></tr>)}</tbody>
-        </table>
+        <div className="table-header-row">
+          <h2>Active Services ({services.length})</h2>
+        </div>
+        <AsyncHandler
+          loading={status.loading && !services.length}
+          error={status.error}
+          onRetry={load}
+          isEmpty={!status.loading && !services.length}
+          emptyMessage="No services registered for this business yet."
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>Service Name</th>
+                <th>Default Duration</th>
+                <th>Historical Average</th>
+                <th>Total Served</th>
+              </tr>
+            </thead>
+            <tbody>
+              {services.map((service) => (
+                <tr key={service.service_id}>
+                  <td><strong>{service.service_name}</strong></td>
+                  <td>{service.default_duration_minutes} min</td>
+                  <td>{service.calculated_average_minutes || service.default_duration_minutes} min</td>
+                  <td>{service.completed_count || 0}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </AsyncHandler>
       </div>
     </StaffShell>
   );
@@ -519,15 +881,42 @@ export function StaffStatistics() {
   }
 
   return (
-    <StaffShell title="Queue Analytics &amp; Performance">
+    <StaffShell title="Queue Analytics &amp; Peak Performance Intelligence">
       <div className="toolbar-panel">
         <button className="button ghost small" onClick={exportStats}>
-          <Download size={15} /> Export Analytics Report
+          <Download size={15} /> Export Analytics Report (CSV)
         </button>
       </div>
-      <section className="content-grid">
-        <div className="panel"><h2>Status Summary</h2>{data.statusCounts.map((row) => <div className="list-row" key={row.status}><StatusBadge status={row.status} /><strong>{row.total}</strong></div>)}</div>
-        <div className="panel"><h2>Service Performance</h2>{data.serviceStats.map((row) => <div className="list-row" key={row.service_name}><span>{row.service_name}</span><strong>{row.calculated_average_minutes} min avg</strong></div>)}</div>
+
+      {/* Visual Analytics, Peak Rush Hour Bars & Ratio Gauges */}
+      <QueueAnalyticsVisualizer
+        statusCounts={data.statusCounts}
+        serviceStats={data.serviceStats}
+        busyServices={data.busyServices}
+      />
+
+      <section className="content-grid" style={{ marginTop: '20px' }}>
+        <div className="panel">
+          <h2>Counter Status Ledger</h2>
+          {data.statusCounts.map((row) => (
+            <div className="list-row" key={row.status}>
+              <StatusBadge status={row.status} />
+              <strong>{row.total} customers</strong>
+            </div>
+          ))}
+          {!data.statusCounts.length && <p className="empty">No active tickets today yet.</p>}
+        </div>
+
+        <div className="panel">
+          <h2>Service Speed &amp; Durations</h2>
+          {data.serviceStats.map((row) => (
+            <div className="list-row" key={row.service_name}>
+              <span>{row.service_name}</span>
+              <strong>{row.calculated_average_minutes || 10} min avg / ticket</strong>
+            </div>
+          ))}
+          {!data.serviceStats.length && <p className="empty">No services recorded.</p>}
+        </div>
       </section>
     </StaffShell>
   );

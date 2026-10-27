@@ -13,14 +13,22 @@ import {
   CheckCircle2,
   Users,
   Compass,
-  ArrowRight
+  ArrowRight,
+  Bookmark,
+  ShoppingBag
 } from 'lucide-react';
 import PublicNav from '../components/PublicNav.jsx';
 import SmartRecommendationCard from '../components/SmartRecommendationCard.jsx';
 import MapplsNavigationModal from '../components/MapplsNavigationModal.jsx';
+import RushHourMeter from '../components/RushHourMeter.jsx';
+import { useToast } from '../context/ToastContext.jsx';
+import { useQueueStore, queueStore } from '../store/queueStore.js';
+import { useCart } from '../context/CartContext.jsx';
 import { apiRequest } from '../services/api.js';
 import { today, shortTime, formatTime12h, isBusinessOpen } from '../utils/format.js';
-import { getUserCoordinates, formatDistance, calculateDistance } from '../utils/geo.js';
+import { getUserCoordinates, subscribeUserCoordinates, formatDistance, calculateDistance } from '../utils/geo.js';
+import { playChimeTone } from '../utils/audio.js';
+import { triggerConfettiBurst } from '../utils/confetti.js';
 
 const businessTypes = ['', 'Clinic', 'Hospital', 'Restaurant', 'Government Office', 'Bank', 'Salon', 'Service Center', 'Other'];
 
@@ -30,10 +38,17 @@ export function BusinessSearch() {
   const [businesses, setBusinesses] = useState([]);
   const [status, setStatus] = useState({ loading: true, error: '' });
   const [userCoords, setUserCoords] = useState(null);
-  const [navTarget, setNavTarget] = useState(null); // business object for Mappls modal
+  const [navTarget, setNavTarget] = useState(null);
+  const { addToCart } = useCart(); // business object for Mappls modal
+  const toast = useToast();
+  const bookmarks = useQueueStore((s) => s.bookmarkedIds);
 
   useEffect(() => {
+    const unsubscribe = subscribeUserCoordinates((coords) => {
+      if (coords) setUserCoords(coords);
+    });
     getUserCoordinates().then(setUserCoords);
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -102,10 +117,30 @@ export function BusinessSearch() {
                       {isOpen ? 'OPEN' : 'CLOSED'}
                     </span>
                     {dist !== null && (
-                      <span className="distance-pill">
-                        <Navigation size={11} /> {formatDistance(dist)}
+                      <span
+                        className={`distance-pill ${userCoords?.isLive ? 'live-gps' : 'est-gps'}`}
+                        title={userCoords?.isLive ? 'Calculated from live GPS' : 'Estimated from reference center (GPS not locked)'}
+                      >
+                        <Navigation size={11} /> {formatDistance(dist)} {userCoords?.isLive ? '(GPS)' : '(Est.)'}
                       </span>
                     )}
+                    <button
+                      type="button"
+                      className={`bookmark-toggle-btn ${bookmarks.includes(Number(business.business_id)) ? 'bookmarked' : ''}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const added = queueStore.toggleBookmark(business.business_id);
+                        if (added) {
+                          toast.success(`Saved "${business.name}" to bookmarks (Global Store)!`);
+                        } else {
+                          toast.info(`Removed "${business.name}" from bookmarks.`);
+                        }
+                      }}
+                      title={bookmarks.includes(Number(business.business_id)) ? 'Remove bookmark' : 'Bookmark this branch (Global Store)'}
+                      aria-label="Bookmark branch"
+                    >
+                      <Bookmark size={14} fill={bookmarks.includes(Number(business.business_id)) ? 'currentColor' : 'none'} />
+                    </button>
                   </div>
                 </div>
 
@@ -181,6 +216,7 @@ export function BusinessSearch() {
           <MapplsNavigationModal
             business={navTarget}
             userCoords={userCoords}
+            onCoordinatesUpdate={(coords) => setUserCoords(coords)}
             onClose={() => setNavTarget(null)}
           />
         )}
@@ -203,6 +239,7 @@ export function BusinessDetails() {
   const [status, setStatus] = useState({ loading: true, error: '' });
   const [userCoords, setUserCoords] = useState(null);
   const [navTarget, setNavTarget] = useState(null);
+  const { addToCart } = useCart();
 
   async function loadData() {
     setStatus({ loading: true, error: '' });
@@ -223,7 +260,11 @@ export function BusinessDetails() {
   }
 
   useEffect(() => {
+    const unsubscribe = subscribeUserCoordinates((coords) => {
+      if (coords) setUserCoords(coords);
+    });
     loadData();
+    return () => unsubscribe();
   }, [businessId]);
 
   async function bookAppointment(serviceId = selectedService, targetBizId = businessId) {
@@ -237,6 +278,8 @@ export function BusinessDetails() {
           appointment_time: appointmentTime
         }
       });
+      playChimeTone();
+      triggerConfettiBurst();
       navigate(`/customer/queue/${data.entry_id}`);
     } catch (error) {
       setMessage(`${error.message}. Please login as a customer before booking.`);
@@ -249,6 +292,8 @@ export function BusinessDetails() {
         method: 'POST',
         body: { business_id: Number(targetBizId), service_id: Number(serviceId) }
       });
+      playChimeTone();
+      triggerConfettiBurst();
       navigate(`/customer/queue/${data.entry_id}`);
     } catch (error) {
       setMessage(`${error.message}. Please login as a customer before joining.`);
@@ -317,7 +362,7 @@ export function BusinessDetails() {
                     <Navigation size={11} /> {formatDistance(distanceKm)} away
                   </span>
                 )}
-                {business.is_paused && (
+                {Boolean(business.is_paused) && (
                   <span className="status-badge skipped">
                     <AlertTriangle size={13} /> Queue Paused
                   </span>
@@ -366,6 +411,14 @@ export function BusinessDetails() {
                 </div>
               )}
             </div>
+
+            {/* Live Crowd Density & Rush Hour Meter */}
+            <RushHourMeter
+              waitingCount={business.waiting_now || 0}
+              averageDuration={business.average_duration || 12}
+              openingTime={business.opening_time}
+              closingTime={business.closing_time}
+            />
 
             {/* Live Queue Overview Metrics */}
             <div className="details-queue-summary">
@@ -429,6 +482,21 @@ export function BusinessDetails() {
                       </div>
                     </label>
                     <div className="service-actions">
+                      <button
+                        type="button"
+                        className="button outline small"
+                        onClick={() => {
+                          addToCart({
+                            service_id: service.service_id,
+                            name: service.service_name,
+                            duration: service.calculated_average_minutes || service.default_duration_minutes || 15,
+                            price: service.price || 0
+                          }, business);
+                        }}
+                        title="Add to Service Booking Basket"
+                      >
+                        <ShoppingBag size={13} /> Add to Basket
+                      </button>
                       <button
                         type="button"
                         className="button ghost small"
@@ -503,6 +571,7 @@ export function BusinessDetails() {
           <MapplsNavigationModal
             business={navTarget}
             userCoords={userCoords}
+            onCoordinatesUpdate={(coords) => setUserCoords(coords)}
             onClose={() => setNavTarget(null)}
           />
         )}

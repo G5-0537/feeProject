@@ -1,4 +1,4 @@
-USE queless_db;
+USE QueLess;
 
 INSERT INTO users (name, email, phone, password_hash) VALUES
 ('Aarav Mehta', 'aarav@example.com', '9876543210', '$2b$10$HOz8Ods58DI27jdTyeGCfeaozObAHLiQG00phZsnZDoFbHnKz8/Su'),

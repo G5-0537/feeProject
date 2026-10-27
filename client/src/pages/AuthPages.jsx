@@ -3,7 +3,9 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, ArrowLeft, CheckCircle2, AlertCircle, Info, Building2, Briefcase, User } from 'lucide-react';
 import PublicNav from '../components/PublicNav.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useToast } from '../context/ToastContext.jsx';
 import { apiRequest } from '../services/api.js';
+import { validateEmail, validatePassword, validateMatch, validatePhone } from '../utils/validation.js';
 
 const BUSINESS_CATEGORIES = [
   'Clinic',
@@ -80,7 +82,9 @@ export function ForgotPassword() {
 
 function AuthForm({ mode, eyebrow, title, subtitle, buttonText }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { saveCustomer, saveStaff } = useAuth();
+  const toast = useToast();
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -108,17 +112,29 @@ function AuthForm({ mode, eyebrow, title, subtitle, buttonText }) {
     setError('');
     setSuccess('');
 
-    if (!form.email.includes('@')) {
-      setError('Please enter a valid email address.');
+    const emailErr = validateEmail(form.email);
+    if (emailErr) {
+      setError(emailErr);
       return;
     }
-    if (form.password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    const passErr = validatePassword(form.password, 6);
+    if (passErr) {
+      setError(passErr);
       return;
     }
-    if (isSignup && form.password !== form.confirmPassword) {
-      setError('Password and confirmation password do not match.');
-      return;
+    if (isSignup) {
+      const matchErr = validateMatch(form.password, form.confirmPassword, 'Password and confirmation password');
+      if (matchErr) {
+        setError(matchErr);
+        return;
+      }
+      if (form.phone) {
+        const phoneErr = validatePhone(form.phone);
+        if (phoneErr) {
+          setError(phoneErr);
+          return;
+        }
+      }
     }
     if (isStaffSignup && !form.business_name.trim()) {
       setError('Please enter your business or organization name.');
@@ -135,18 +151,22 @@ function AuthForm({ mode, eyebrow, title, subtitle, buttonText }) {
       const { confirmPassword, ...payload } = form;
       const data = await apiRequest(endpoint, { method: 'POST', body: payload, staff: isStaff });
       setSuccess('Success! Redirecting to your dashboard...');
+      toast.success(isSignup ? 'Account created successfully! Welcome to QueLess.' : 'Login successful! Redirecting...');
       
       setTimeout(() => {
+        const fromPath = location.state?.from?.pathname;
         if (isStaff) {
           saveStaff(data);
-          navigate('/staff/dashboard');
+          navigate(fromPath || '/staff/dashboard', { replace: true });
         } else {
           saveCustomer(data);
-          navigate('/customer/dashboard');
+          navigate(fromPath || '/customer/dashboard', { replace: true });
         }
       }, 400);
     } catch (err) {
-      setError(err.message || 'Authentication failed. Please check your credentials.');
+      const msg = err.message || 'Authentication failed. Please check your credentials.';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -468,8 +488,9 @@ function ForgotPasswordCard({ onBack, isStaff: propIsStaff, backMode }) {
     e.preventDefault();
     setError('');
 
-    if (!email || !email.includes('@')) {
-      setError('Please enter a valid email address.');
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      setError(emailErr);
       return;
     }
 
